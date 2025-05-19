@@ -28,7 +28,7 @@ export class UcodeRepository {
       if (isOtp) {
         // create 6 digit otp code
         // token = String(Math.floor(100000 + Math.random() * 900000));
-        token = String(randomInt(100000, 1000000));
+        token = String(randomInt(1000, 10000));
       } else {
         token = uuid();
       }
@@ -78,7 +78,7 @@ export class UcodeRepository {
       const existToken = await prisma.ucode.findFirst({
         where: {
           AND: {
-            token: token,
+            token: String(token), // Convert token to string
             email: email,
           },
         },
@@ -90,7 +90,7 @@ export class UcodeRepository {
             where: {
               AND: [
                 {
-                  token: token,
+                  token: String(token), // Convert token to string
                 },
                 {
                   email: email,
@@ -136,7 +136,10 @@ export class UcodeRepository {
   static async deleteToken({ email, token }) {
     await prisma.ucode.deleteMany({
       where: {
-        AND: [{ email: email }, { token: token }],
+        AND: [
+          { email: email },
+          { token: String(token) }  // Convert token to string
+        ],
       },
     });
   }

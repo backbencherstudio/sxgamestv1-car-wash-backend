@@ -192,36 +192,23 @@ export class UserRepository {
    */
   static async createUser({
     name,
-    first_name,
-    last_name,
     email,
     password,
-    phone_number,
     role_id = null,
     type = 'user',
+    avatar
   }: {
     name?: string;
-    first_name?: string;
-    last_name?: string;
     email: string;
     password: string;
-    phone_number?: string;
     role_id?: string;
     type?: string;
+    avatar: string
   }) {
     try {
       const data = {};
       if (name) {
         data['name'] = name;
-      }
-      if (first_name) {
-        data['first_name'] = first_name;
-      }
-      if (last_name) {
-        data['last_name'] = last_name;
-      }
-      if (phone_number) {
-        data['phone_number'] = phone_number;
       }
       if (email) {
         // Check if email already exist
@@ -244,6 +231,9 @@ export class UserRepository {
           password,
           appConfig().security.salt,
         );
+      }
+      if (avatar) {
+        data['avatar'] = avatar;
       }
 
       if (type && ArrayHelper.inArray(type, Object.values(Role))) {

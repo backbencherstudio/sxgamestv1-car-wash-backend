@@ -1,5 +1,5 @@
 // external imports
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 //internal imports
 import { PrismaService } from '../../prisma/prisma.service';
@@ -82,12 +82,7 @@ export class AuthService {
       if (updateUserDto.name) {
         data.name = updateUserDto.name;
       }
-      if (updateUserDto.first_name) {
-        data.first_name = updateUserDto.first_name;
-      }
-      if (updateUserDto.last_name) {
-        data.last_name = updateUserDto.last_name;
-      }
+
       if (updateUserDto.phone_number) {
         data.phone_number = updateUserDto.phone_number;
       }
@@ -234,20 +229,19 @@ export class AuthService {
 
   async register({
     name,
-    first_name,
-    last_name,
     email,
     password,
-    type,
+    type = 'user', // Add default value here
+    avatar
   }: {
     name: string;
-    first_name: string;
-    last_name: string;
     email: string;
     password: string;
     type?: string;
+    avatar: string
   }) {
     try {
+      console.log(name,email,password, type , avatar)
       // Check if email already exist
       const userEmailExist = await UserRepository.exist({
         field: 'email',
@@ -255,20 +249,17 @@ export class AuthService {
       });
 
       if (userEmailExist) {
-        return {
-          statusCode: 401,
-          message: 'Email already exist',
-        };
+        throw new HttpException('Email Already Exist', HttpStatus.UNAUTHORIZED);
       }
 
       const user = await UserRepository.createUser({
         name: name,
-        first_name: first_name,
-        last_name: last_name,
         email: email,
         password: password,
         type: type,
+        avatar: avatar,
       });
+
 
       if (user == null && user.success == false) {
         return {
@@ -297,38 +288,38 @@ export class AuthService {
 
       // ----------------------------------------------------
       // // create otp code
-      // const token = await UcodeRepository.createToken({
-      //   userId: user.data.id,
-      //   isOtp: true,
-      // });
-
+      const token = await UcodeRepository.createToken({
+        userId: user.data.id,
+        isOtp: true,
+      });
+      console.log(token)
       // // send otp code to email
-      // await this.mailService.sendOtpCodeToEmail({
-      //   email: email,
-      //   name: name,
-      //   otp: token,
-      // });
+      await this.mailService.sendOtpCodeToEmail({
+        email: email,
+        name: name,
+        otp: token,
+      });
 
-      // return {
-      //   success: true,
-      //   message: 'We have sent an OTP code to your email',
-      // };
+      return {
+        success: true,
+        message: 'We have sent an OTP code to your email',
+      };
 
       // ----------------------------------------------------
 
       // Generate verification token
-      const token = await UcodeRepository.createVerificationToken({
-        userId: user.data.id,
-        email: email,
-      });
+      // const token = await UcodeRepository.createVerificationToken({
+      //   userId: user.data.id,
+      //   email: email,
+      // });
 
       // Send verification email with token
-      await this.mailService.sendVerificationLink({
-        email,
-        name: email,
-        token: token.token,
-        type: type,
-      });
+      // await this.mailService.sendVerificationLink({
+      //   email,
+      //   name: email,
+      //   token: token.token,
+      //   type: type,
+      // });
 
       return {
         success: true,
@@ -724,4 +715,41 @@ export class AuthService {
     }
   }
   // --------- end 2FA ---------
+
+  async addRole(email: string, role: string) {
+    try {
+      const user = await this.prisma.user.findFirst({
+        where: {
+          email: email,
+        },
+      });
+      
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      await this.prisma.user.update({
+        where: {
+          email: email,
+        },
+        data: {
+          type: role,
+        },
+      });
+
+      return {
+        success: true,
+        message: `Role updated to ${role} successfully`,
+        email: email
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
 }

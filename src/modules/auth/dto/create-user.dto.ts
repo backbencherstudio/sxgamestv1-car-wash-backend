@@ -1,31 +1,35 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, MinLength } from 'class-validator';
 
 export class CreateUserDto {
   @IsNotEmpty()
-  @ApiProperty()
-  name?: string;
+  @ApiProperty({ example: 'John Doe' })
+  name: string;
 
   @IsNotEmpty()
-  @ApiProperty()
-  first_name?: string;
+  @IsEmail()
+  @ApiProperty({ example: 'john@example.com' })
+  email: string;
 
   @IsNotEmpty()
-  @ApiProperty()
-  last_name?: string;
-
-  @IsNotEmpty()
-  @ApiProperty()
-  email?: string;
-
-  @IsNotEmpty()
-  @MinLength(8, { message: 'Password should be minimum 8' })
-  @ApiProperty()
+  @MinLength(8, { message: 'Password should be minimum 8 characters' })
+  @ApiProperty({ example: 'password123' })
   password: string;
 
-  @ApiProperty({
-    type: String,
-    example: 'user',
+  @IsOptional()
+  @ApiProperty({ 
+    type: 'string', 
+    format: 'binary',
+    required: false 
   })
-  type?: string;
+  avatar?: string;
+
+  @IsOptional()
+  @ApiProperty({
+    type: "string",
+    example: 'user',
+    default: "user",
+    required: false
+  })
+  type: string = 'user'; // Add default value here
 }
