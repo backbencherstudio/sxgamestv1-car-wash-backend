@@ -21,6 +21,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { ChatModule } from './modules/chat/chat.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { ServiceProviderModule } from './modules/service-provider/service-provider.module';
+import { UserDashboardModule } from './modules/user-dashboard/user-dashboard.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { ServiceProviderModule } from './modules/service-provider/service-provid
     ChatModule,
     PaymentModule,
     ServiceProviderModule,
+    UserDashboardModule,
   ],
   controllers: [AppController],
   providers: [
