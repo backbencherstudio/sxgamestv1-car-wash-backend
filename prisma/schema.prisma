@@ -79,6 +79,8 @@ model User {
   role_users           RoleUser[]
   payment_transactions PaymentTransaction[]
 
+  service_provider ServiceProvider?
+
   @@map("users")
 }
 
@@ -391,3 +393,29 @@ model UserSetting {
 //   tenant    Organization? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 //   @@map("posts")
 // }
+
+
+model ServiceProvider {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+  status     Int?      @default(1) @db.SmallInt
+
+  business_name     String
+  business_number   String
+  profile_picture   String?
+  license_front     String
+  license_back      String
+  nid_number       String
+  license_number    String
+  date_of_birth     DateTime
+  business_location String
+  permanent_address String
+
+  user_id String @unique
+  user    User   @relation(fields: [user_id], references: [id])
+
+  @@map("service_providers")
+}
+
