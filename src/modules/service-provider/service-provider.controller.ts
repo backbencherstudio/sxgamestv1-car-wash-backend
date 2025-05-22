@@ -8,7 +8,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { ApiConsumes, ApiOperation, ApiBearerAuth, ApiTags, ApiBody } from '@nestjs/swagger';
+import { ApiConsumes, ApiOperation, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
 import { ServiceProviderService } from './service-provider.service';
 import { CreateServiceProviderDto } from './dto/create-service-provider.dto';
@@ -28,7 +28,7 @@ export class ServiceProviderController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileFieldsInterceptor(
-      [
+      [                
         { name: 'profile_picture', maxCount: 1 },
         { name: 'license_front', maxCount: 1 },
         { name: 'license_back', maxCount: 1 },

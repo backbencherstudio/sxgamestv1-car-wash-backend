@@ -1,8 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateServiceProviderDto } from './dto/create-service-provider.dto';
-import { SojebStorage } from '../../common/lib/Disk/SojebStorage';
-import appConfig from '../../config/app.config';
 
 @Injectable()
 export class ServiceProviderService {

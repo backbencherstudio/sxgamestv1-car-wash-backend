@@ -378,23 +378,6 @@ model UserSetting {
   @@map("user_settings")
 }
 
-// this table stores example
-// model Note {
-//   id                String  @id @default(cuid())
-//   created_at DateTime  @default(now())
-//   updated_at DateTime  @default(now())
-//   deleted_at DateTime?
-//   status     Int?      @default(1) @db.SmallInt
-
-//   title String?
-//   body  String? @db.Text
-
-//   tenant_id Int?
-//   tenant    Organization? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-//   @@map("posts")
-// }
-
-
 model ServiceProvider {
   id         String    @id @default(cuid())
   created_at DateTime  @default(now())
@@ -417,5 +400,25 @@ model ServiceProvider {
   user    User   @relation(fields: [user_id], references: [id])
 
   @@map("service_providers")
+}
+
+model Service {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+  status     Int?      @default(1) @db.SmallInt
+
+  name            String
+  category        String
+  location        String
+  available_time  String
+  team_size      Int
+  description     String
+  is_mobile      Boolean  @default(false)
+  is_garage      Boolean  @default(false)
+  image          String?
+
+  @@map("services")
 }
 

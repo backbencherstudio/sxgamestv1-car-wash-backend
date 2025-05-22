@@ -22,6 +22,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { ServiceProviderModule } from './modules/service-provider/service-provider.module';
 import { UserDashboardModule } from './modules/user-dashboard/user-dashboard.module';
+import { ServiceBookingModule } from './modules/service-booking/service-booking.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { UserDashboardModule } from './modules/user-dashboard/user-dashboard.mod
     PaymentModule,
     ServiceProviderModule,
     UserDashboardModule,
+    ServiceBookingModule,
   ],
   controllers: [AppController],
   providers: [
