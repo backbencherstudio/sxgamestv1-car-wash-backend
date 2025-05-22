@@ -81,6 +81,8 @@ model User {
 
   service_provider ServiceProvider?
 
+  service_bookings ServiceBooking[]
+
   @@map("users")
 }
 
@@ -420,5 +422,25 @@ model Service {
   image          String?
 
   @@map("services")
+}
+
+model ServiceBooking {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+  status     String    @default("pending")
+
+  service_type      String
+  service_timing    String    @default("scheduled")
+  location         String
+  schedule_date    String
+  schedule_time    String
+  schedule_datetime DateTime
+
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@map("service_bookings")
 }
 
