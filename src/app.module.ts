@@ -23,6 +23,7 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { ServiceProviderModule } from './modules/service-provider/service-provider.module';
 import { UserDashboardModule } from './modules/user-dashboard/user-dashboard.module';
 import { ServiceBookingModule } from './modules/service-booking/service-booking.module';
+import { OrderHistoryModule } from './modules/order-history/order-history.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { ServiceBookingModule } from './modules/service-booking/service-booking.
     ServiceProviderModule,
     UserDashboardModule,
     ServiceBookingModule,
+    OrderHistoryModule,
   ],
   controllers: [AppController],
   providers: [
