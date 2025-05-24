@@ -446,28 +446,31 @@ model ServiceBooking {
   @@map("service_bookings")
 }
 
-
 model Subscription {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
-  status     String    @default("active")
-
-  user_id           String
-  stripe_customer_id String
-  stripe_subscription_id String
-  plan_id          String
-  current_period_start DateTime
-  current_period_end   DateTime
-  cancel_at_period_end Boolean @default(false)
-  canceled_at      DateTime?
+  id                      String    @id @default(cuid())
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @default(now())
+  deleted_at              DateTime?
   
-  user             User     @relation(fields: [user_id], references: [id])
-  plan             Plan     @relation(fields: [plan_id], references: [id])
+  user_id                 String
+  stripe_customer_id      String
+  stripe_subscription_id  String   @unique
+  plan_id                 String
+
+  status                  String   // or use enum SubscriptionStatus
+  is_active               Boolean  @default(false)
+  
+  current_period_start    DateTime
+  current_period_end      DateTime
+  cancel_at_period_end    Boolean  @default(false)
+  canceled_at             DateTime?
+
+  user                    User     @relation(fields: [user_id], references: [id])
+  plan                    Plan     @relation(fields: [plan_id], references: [id])
 
   @@map("subscriptions")
 }
+
 
 model Plan {
   id         String    @id @default(cuid())

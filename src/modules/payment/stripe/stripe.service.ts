@@ -1,344 +1,294 @@
+// src/stripe/stripe.service.ts
+
 import { Injectable } from '@nestjs/common';
-import { StripePayment } from '../../../common/lib/Payment/stripe/StripePayment';
+import { PrismaService } from 'src/prisma/prisma.service';
 import Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
-
-interface StripeSubscriptionWithDates extends Stripe.Subscription {
-  current_period_start: number;
-  current_period_end: number;
-}
-
-interface StripeInvoiceWithPaymentIntent extends Stripe.Invoice {
-  payment_intent: Stripe.PaymentIntent;
-}
-
-interface StripeCustomerWithMetadata extends Stripe.Customer {
-  metadata: {
-    user_id: string;
-  };
-}
 
 @Injectable()
 export class StripeService {
-  private prisma: PrismaClient;
+  private stripe: Stripe;
 
-  constructor() {
-    this.prisma = new PrismaClient();
+  constructor(private prisma: PrismaService) {
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-03-31.basil',
+    });
   }
 
-  async handleWebhook(rawBody: string, sig: string | string[]) {
-    return StripePayment.handleWebhook(rawBody, sig);
-  }
-
-  async createSubscription(customerId: string, priceId: string, userId: string) {
+  async createCustomerWithSubscription(
+    email: string,
+    paymentMethodId: string,
+    userId: string,
+  ) {
     try {
-      console.log('Creating subscription with:', { customerId, priceId, userId });
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2025-03-31.basil'
-      });
-
-      // Get or create the plan
-      console.log('Getting or creating plan...');
-      let plan = await this.prisma.plan.findFirst({
-        where: {
-          stripe_price_id: priceId
-        }
-      });
-
-      if (!plan) {
-        // Get price details from Stripe
-        const price = await stripe.prices.retrieve(priceId);
-        console.log('Creating new plan with price:', price);
-        plan = await this.prisma.plan.create({
-          data: {
-            name: 'Monthly Plan',
-            description: 'Monthly subscription plan',
-            price: price.unit_amount / 100,
-            currency: price.currency,
-            interval: 'month',
-            stripe_price_id: priceId
-          }
+      const priceId = process.env.STRIPE_MONTHLY_PRICE_ID;
+  
+      const existingCustomers = await this.stripe.customers.list({ email, limit: 1 });
+  
+      let customer: Stripe.Customer;
+  
+      if (existingCustomers.data.length > 0) {
+        customer = existingCustomers.data[0];
+        console.log('[Info] Reusing existing customer:', customer.id);
+      } else {
+        customer = await this.stripe.customers.create({
+          email,
+          metadata: { userId },
         });
       }
-      console.log('Plan ready:', plan.id);
-
-      // Create the subscription
-      console.log('Creating Stripe subscription...');
-      const subscription = await stripe.subscriptions.create({
-        customer: customerId,
-        items: [{ price: priceId }],
-        payment_behavior: 'default_incomplete',
-        payment_settings: { 
-          save_default_payment_method: 'on_subscription',
-          payment_method_types: ['card']
-        },
-        expand: ['latest_invoice']
-      }) as unknown as StripeSubscriptionWithDates;
-      console.log('Subscription created:', subscription.id);
-
-      // Get the latest invoice
-      console.log('Getting latest invoice...');
-      const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
-      
-      if (!latestInvoice) {
-        console.error('No invoice found for subscription:', subscription.id);
-        throw new Error('No invoice found for the subscription');
-      }
-      console.log('Latest invoice found:', latestInvoice.id);
-
-      // Create a payment intent for the invoice
-      console.log('Creating payment intent...');
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: latestInvoice.amount_due,
-        currency: latestInvoice.currency,
-        customer: customerId,
-        payment_method_types: ['card'],
-        metadata: {
-          subscription_id: subscription.id,
-          invoice_id: latestInvoice.id,
-          user_id: userId
-        }
-      });
-      console.log('Payment intent created:', paymentIntent.id);
-
-      // Store initial subscription data
-      console.log('Storing subscription in database...');
+  
       try {
-        const subscriptionData = {
+        await this.stripe.paymentMethods.attach(paymentMethodId, {
+          customer: customer.id,
+        });
+      } catch (err) {
+        if (err.code !== 'resource_already_attached') {
+          throw err;
+        }
+      }
+  
+      await this.stripe.customers.update(customer.id, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+  
+      // ✅ Store billing_id
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { billing_id: customer.id },
+      });
+  
+      const subscription = await this.stripe.subscriptions.create({
+        customer: customer.id,
+        items: [{ price: priceId }],
+        expand: ['latest_invoice'],
+      });
+  
+      return {
+        customerId: customer.id,
+        subscription,
+      };
+    } catch (error) {
+      console.error('[Stripe Error]', error);
+      throw new Error(error.message);
+    }
+  }
+
+  async constructWebhookEvent(rawBody: any, signature: string) {
+    try {
+      const event = this.stripe.webhooks.constructEvent(
+        rawBody,
+        signature,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+      return event;
+    } catch (error) {
+      throw new Error(`Webhook Error: ${error.message}`);
+    }
+  }
+
+  async cancelSubscription(stripeSubId: string, userId: string) {
+    try {
+      const subscription = await this.prisma.subscription.findFirst({
+        where: {
+          stripe_subscription_id: stripeSubId,
           user_id: userId,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: subscription.id,
-          plan_id: plan.id,
-          current_period_start: new Date(subscription.current_period_start * 1000),
-          current_period_end: new Date(subscription.current_period_end * 1000),
-          status: 'incomplete',
-          cancel_at_period_end: false,
-          canceled_at: null
-        };
-        console.log('Subscription data to be stored:', subscriptionData);
+        },
+      });
+  
+      if (!subscription) {
+        return { success: false, message: 'Subscription not found', data: null };
+      }
+  
+      // Cancel on Stripe
+      const stripeRes = await this.stripe.subscriptions.update(stripeSubId, {
+        cancel_at_period_end: true, // or false if you want immediate cancel
+      });
+  
+      // Update DB
+      await this.prisma.subscription.update({
+        where: { stripe_subscription_id: stripeSubId },
+        data: {
+          cancel_at_period_end: stripeRes.cancel_at_period_end,
+          status: stripeRes.status,
+          is_active: stripeRes.cancel_at_period_end ? true : false,
+          canceled_at: stripeRes.cancel_at_period_end ? null : new Date(),
+        },
+      });
+  
+      return {
+        success: true,
+        message: 'Subscription cancelled successfully',
+        data: stripeRes,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+        data: null,
+      };
+    }
+  }
+
+  async handleSuccessfulPayment(invoice: Stripe.Invoice & { subscription: string | Stripe.Subscription }) {
+    try {
+      const subscriptionId = typeof invoice.subscription === 'string' 
+        ? invoice.subscription 
+        : invoice.subscription?.id;
         
-        const dbSubscription = await this.prisma.subscription.create({
-          data: subscriptionData
-        });
-        console.log('Subscription stored in database:', dbSubscription);
-      } catch (dbError) {
-        console.error('Error storing subscription in database:', dbError);
-        throw dbError;
+      if (!subscriptionId) {
+        throw new Error('No subscription ID found in invoice');
       }
 
-      return {
-        subscriptionId: subscription.id,
-        clientSecret: paymentIntent.client_secret,
-        status: subscription.status
-      };
-    } catch (error) {
-      console.error('Error in createSubscription:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack
-        });
-      }
-      throw error;
-    }
-  }
-
-  async handleSuccessfulSubscription(subscriptionId: string) {
-    try {
-      console.log('Handling successful subscription:', subscriptionId);
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2025-03-31.basil'
-      });
-
-      // Retrieve the subscription from Stripe
-      console.log('Retrieving subscription from Stripe...', subscriptionId);
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
-        expand: ['customer', 'latest_invoice.payment_intent'] // Expanded payment_intent here
-      }) as unknown as StripeSubscriptionWithDates;
-      console.log('Subscription retrieved from Stripe:', subscription.id);
-
-      // Get the payment intent from the latest invoice
-      console.log('Getting latest invoice and payment intent...');
-      const latestInvoice = subscription.latest_invoice as StripeInvoiceWithPaymentIntent;
-      if (!latestInvoice) {
-        console.error('Error: No invoice found for the subscription', subscription.id);
-        throw new Error('No invoice found for the subscription');
-      }
-      console.log('Latest invoice found:', latestInvoice.id);
-
-      const paymentIntent = latestInvoice.payment_intent;
-      if (!paymentIntent) {
-         console.error('Error: No payment intent found for the latest invoice', latestInvoice.id);
-        throw new Error('No payment intent found for the subscription');
-      }
-      console.log('Payment intent found:', paymentIntent.id);
-
-      // Get the user ID from payment intent metadata
-      console.log('Getting user ID from payment intent metadata...');
-      const userId = paymentIntent.metadata.user_id;
-      if (!userId) {
-        console.error('Error: No user ID found in payment intent metadata for payment intent', paymentIntent.id);
-        throw new Error('No user ID found in payment intent metadata');
-      }
-      console.log('User ID found:', userId);
-
-      // Get the plan ID from the subscription
-      console.log('Getting plan ID from subscription...');
-       const priceId = subscription.items.data[0].price.id;
-      console.log('Price ID from subscription:', priceId);
-
-      // Get or create the plan
-      console.log('Getting or creating plan...');
-      let plan = await this.prisma.plan.findFirst({
-        where: {
-          stripe_price_id: priceId
-        }
-      });
-
-      if (!plan) {
-        // Get price details from Stripe
-        const price = await stripe.prices.retrieve(priceId);
-        console.log('Creating new plan with price details:', price);
-        plan = await this.prisma.plan.create({
-          data: {
-            name: 'Monthly Plan',
-            description: 'Monthly subscription plan',
-            price: price.unit_amount / 100,
-            currency: price.currency,
-            interval: 'month',
-            stripe_price_id: priceId
-          }
-        });
-        console.log('New plan created:', plan.id);
-      }
-      console.log('Plan ready:', plan.id);
-
-      // Store initial subscription data
-      console.log('Preparing subscription data for database...');
-      const subscriptionData = {
-        user_id: userId,
-        stripe_customer_id: subscription.customer as string,
-        stripe_subscription_id: subscription.id,
-        plan_id: plan.id,
-        current_period_start: new Date(subscription.current_period_start * 1000),
-        current_period_end: new Date(subscription.current_period_end * 1000),
-        status: subscription.status,
-        cancel_at_period_end: subscription.cancel_at_period_end,
-        canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null
-      };
-      console.log('Subscription data to be stored:', subscriptionData);
-
-      console.log('Storing subscription in database...');
-      const dbSubscription = await this.prisma.subscription.create({
-        data: subscriptionData
-      });
-      console.log('Subscription stored in database:', dbSubscription);
-
-      return {
-        subscriptionId: subscription.id,
-        status: subscription.status,
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000)
-      };
-    } catch (error) {
-      console.error('Error in handleSuccessfulSubscription:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack
-        });
-      }
-      throw error;
-    }
-  }
-
-  async createCustomer(email: string, name: string, user_id: string) {
-    try {
-      return await StripePayment.createCustomer({
-        email,
-        name,
-        user_id
-      });
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async cancelSubscription(subscriptionId: string, cancelAtPeriodEnd: boolean = true) {
-    try {
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2025-03-31.basil'
-      });
-
-      const subscription = await stripe.subscriptions.update(subscriptionId, {
-        cancel_at_period_end: cancelAtPeriodEnd,
-        ...(cancelAtPeriodEnd ? {} : { cancel_immediately: true })
-      }) as unknown as StripeSubscriptionWithDates;
-
-      // Find the subscription in database first
-      let dbSubscription = await this.prisma.subscription.findFirst({
-        where: {
-          stripe_subscription_id: subscriptionId
-        }
-      });
-
-      // If subscription doesn't exist in database, create it
-      if (!dbSubscription) {
-        // Get the customer to find the user_id
-        const customer = await stripe.customers.retrieve(subscription.customer as string) as unknown as StripeCustomerWithMetadata;
-        if (!customer || !customer.metadata?.user_id) {
-          throw new Error('Could not find user ID for subscription');
-        }
-
-        // Get the plan ID from the subscription
-        const priceId = subscription.items.data[0].price.id;
-        const plan = await this.prisma.plan.findFirst({
-          where: {
-            stripe_price_id: priceId
-          }
-        });
-
-        if (!plan) {
-          throw new Error('Plan not found in database');
-        }
-
-        // Create the subscription record
-        dbSubscription = await this.prisma.subscription.create({
-          data: {
-            user_id: customer.metadata.user_id,
-            stripe_customer_id: subscription.customer as string,
-            stripe_subscription_id: subscription.id,
-            plan_id: plan.id,
-            current_period_start: new Date(subscription.current_period_start * 1000),
-            current_period_end: new Date(subscription.current_period_end * 1000),
-            status: subscription.status,
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null
-          }
-        });
-      }
-
-      // Update subscription in database
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+      const customer = await this.stripe.customers.retrieve(invoice.customer as string);
+      
       await this.prisma.subscription.update({
         where: {
-          id: dbSubscription.id
+          stripe_subscription_id: subscription.id,
         },
         data: {
-          status: subscription.status,
-          cancel_at_period_end: subscription.cancel_at_period_end,
-          canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
-          current_period_end: new Date(subscription.current_period_end * 1000)
-        }
+          is_active: true,
+          status: "active"
+        },
       });
+      
+      await this.prisma.paymentTransaction.updateMany({
+        where: {
+          reference_number: subscription.id,
+          status: 'pending',
+        },
+        data: {
+          status: 'completed',
+        },
+      });
+      
+      
+      // After successful payment
+      // await this.userNotificationService.create(
+      //   subscription.metadata.userId,
+      //   'SUBSCRIPTION_PURCHASED',
+      //   'Your subscription payment was successful',
+      //   { subscriptionId: subscription.id }
+      // );
 
       return {
-        subscriptionId: subscription.id,
-        status: subscription.status,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        canceledAt: subscription.canceled_at,
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000)
+        subscription,
+        customer,
+        invoice
       };
     } catch (error) {
-      throw error;
+      throw new Error(`Payment handling error: ${error.message}`);
     }
   }
+
+  async handleFailedPayment(invoice: Stripe.Invoice & { subscription: string | Stripe.Subscription }) {
+    try {
+      const subscriptionId = typeof invoice.subscription === 'string' 
+        ? invoice.subscription 
+        : invoice.subscription?.id;
+        
+      if (!subscriptionId) {
+        throw new Error('No subscription ID found in invoice');
+      }
+      const customerId = invoice.customer as string;
+  
+      if (!subscriptionId || !customerId) {
+        throw new Error('Missing subscription or customer ID in invoice.');
+      }
+  
+      // Optionally fetch more details (if needed)
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+  
+      // Update your subscription record to reflect failure
+      await this.prisma.subscription.update({
+        where: {
+          stripe_subscription_id: subscriptionId,
+        },
+        data: {
+          is_active: false,
+          status: subscription.status, // likely 'past_due' or 'incomplete'
+        },
+      });
+  
+      // Update any pending payment transaction
+      await this.prisma.paymentTransaction.updateMany({
+        where: {
+          reference_number: subscriptionId,
+          status: 'pending',
+        },
+        data: {
+          status: 'failed',
+        },
+      });
+  
+      // (Optional) Send a notification to the user
+      // const user = await this.prisma.user.findFirst({ where: { billing_id: customerId } });
+      // if (user) {
+      //   await this.userNotificationService.create(
+      //     user.id,
+      //     'PAYMENT_FAILED',
+      //     'Your subscription payment failed. Please update your payment method.',
+      //     { subscriptionId }
+      //   );
+      // }
+  
+      console.warn(`❗ Subscription payment failed for ${subscriptionId}`);
+    } catch (error) {
+      console.error(`handleFailedPayment error: ${error.message}`);
+      throw new Error(`Failed to process payment failure: ${error.message}`);
+    }
+  }
+
+  async handleSubscriptionCancelled(subscription: Stripe.Subscription) {
+    try {
+      const subscriptionId = subscription.id;
+      const customerId = subscription.customer as string;
+  
+      // Step 1: Update your DB subscription record
+      await this.prisma.subscription.update({
+        where: {
+          stripe_subscription_id: subscriptionId,
+        },
+        data: {
+          is_active: false,
+          status: 'canceled',
+          canceled_at: new Date(), // Optional, you can use `subscription.canceled_at` if available
+        },
+      });
+  
+      // Step 2: Update payment transaction if needed
+      await this.prisma.paymentTransaction.updateMany({
+        where: {
+          reference_number: subscriptionId,
+          status: 'pending',
+        },
+        data: {
+          status: 'cancelled',
+        },
+      });
+  
+      // Step 3: Optional notification to the user
+      // const user = await this.prisma.user.findFirst({
+      //   where: { billing_id: customerId },
+      // });
+      // if (user) {
+      //   await this.userNotificationService.create(
+      //     user.id,
+      //     'SUBSCRIPTION_CANCELLED',
+      //     'Your subscription has been cancelled.',
+      //     { subscriptionId }
+      //   );
+      // }
+  
+      console.log(`🛑 Subscription ${subscriptionId} cancelled successfully`);
+    } catch (error) {
+      console.error(`[Subscription Cancelled Error]`, error.message);
+      throw new Error(`Failed to cancel subscription: ${error.message}`);
+    }
+  }
+  
+  
+  
+  
 }
