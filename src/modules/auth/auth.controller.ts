@@ -36,7 +36,6 @@ export class AuthController {
   async me(@Req() req: Request) {
     try {
       const user_id = req.user.userId;
-
       const response = await this.authService.me(user_id);
 
       return response;

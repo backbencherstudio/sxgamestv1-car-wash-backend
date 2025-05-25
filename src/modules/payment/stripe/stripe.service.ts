@@ -52,7 +52,7 @@ export class StripeService {
         },
       });
   
-      // ✅ Store billing_id
+      // Store billing_id
       await this.prisma.user.update({
         where: { id: userId },
         data: { billing_id: customer.id },
@@ -63,10 +63,48 @@ export class StripeService {
         items: [{ price: priceId }],
         expand: ['latest_invoice'],
       });
+
+      // Get plan details
+      const plan = await this.prisma.plan.findFirst({
+        where: { stripe_price_id: priceId }
+      });
+
+      if (!plan) {
+        throw new Error('Plan not found for the given price ID');
+      }
+
+      // Create subscription record
+      const dbSubscription = await this.prisma.subscription.create({
+        data: {
+          user_id: userId,
+          stripe_customer_id: customer.id,
+          stripe_subscription_id: subscription.id,
+          plan_id: plan.id,
+          status: subscription.status,
+          is_active: subscription.status === 'active',
+          current_period_start: new Date(),
+          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          cancel_at_period_end: subscription.cancel_at_period_end,
+        }
+      });
+
+      // Create payment transaction record
+      await this.prisma.paymentTransaction.create({
+        data: {
+          user_id: userId,
+          type: 'subscription',
+          provider: 'stripe',
+          reference_number: subscription.id,
+          status: 'pending',
+          amount: subscription.items.data[0].price.unit_amount / 100,
+          currency: subscription.currency,
+        }
+      });
   
       return {
         customerId: customer.id,
-        subscription,
+        subscription: dbSubscription,
+        stripeSubscription: subscription,
       };
     } catch (error) {
       console.error('[Stripe Error]', error);
@@ -143,41 +181,58 @@ export class StripeService {
       const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
       const customer = await this.stripe.customers.retrieve(invoice.customer as string);
       
+      // First check if subscription exists
+      const existingSubscription = await this.prisma.subscription.findFirst({
+        where: {
+          stripe_subscription_id: subscriptionId,
+        },
+      });
+
+      if (!existingSubscription) {
+        console.error(`[Payment Success Error] Subscription not found: ${subscriptionId}`);
+        return {
+          success: false,
+          message: 'Subscription not found',
+          subscription,
+          customer,
+          invoice
+        };
+      }
+
+      // Update subscription record with correct ID
       await this.prisma.subscription.update({
         where: {
-          stripe_subscription_id: subscription.id,
+          stripe_subscription_id: subscriptionId,
         },
         data: {
           is_active: true,
-          status: "active"
+          status: subscription.status,
         },
       });
       
+      // Update payment transaction
       await this.prisma.paymentTransaction.updateMany({
         where: {
-          reference_number: subscription.id,
+          reference_number: subscriptionId,
           status: 'pending',
         },
         data: {
           status: 'completed',
+          amount: invoice.amount_paid / 100,
+          currency: invoice.currency,
+          paid_amount: invoice.amount_paid / 100,
+          paid_currency: invoice.currency,
         },
       });
-      
-      
-      // After successful payment
-      // await this.userNotificationService.create(
-      //   subscription.metadata.userId,
-      //   'SUBSCRIPTION_PURCHASED',
-      //   'Your subscription payment was successful',
-      //   { subscriptionId: subscription.id }
-      // );
 
       return {
+        success: true,
         subscription,
         customer,
         invoice
       };
     } catch (error) {
+      console.error('[Payment Success Error]', error);
       throw new Error(`Payment handling error: ${error.message}`);
     }
   }
