@@ -1,7 +1,5 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query, Patch, Param, Body } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
-import { CreateDashboardDto } from './dto/create-dashboard.dto';
-import { UpdateDashboardDto } from './dto/update-dashboard.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { Roles } from 'src/common/guard/role/roles.decorator';
 import { RolesGuard } from 'src/common/guard/role/roles.guard';
@@ -14,9 +12,24 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get()
-  async findAll() {
+  async findAll(@Query('period') period?: 'yearly' | 'monthly') {
     try {
-      return this.dashboardService.findAll();
+      return this.dashboardService.findAll(period);
+    } catch (error) {
+      return {
+        status: false,
+        message: error.message,
+      }
+    }
+  }
+
+  @Patch('admin/service-booking/:id')
+  async updateServiceStatus(
+    @Param('id') id: string,
+    @Body('action') action: 'accept' | 'reject'
+  ) {
+    try {
+      return this.dashboardService.updateServiceStatus(id, action);
     } catch (error) {
       return {
         status: false,
