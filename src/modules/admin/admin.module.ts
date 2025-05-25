@@ -8,6 +8,7 @@ import { NotificationModule } from './notification/notification.module';
 import { ServicesModule } from './services/services.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ManageBookingsModule } from './manage-bookings/manage-bookings.module';
+import { ScheduleCalenderModule } from './schedule-calender/schedule-calender.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ManageBookingsModule } from './manage-bookings/manage-bookings.module';
     ServicesModule,
     DashboardModule,
     ManageBookingsModule,
+    ScheduleCalenderModule,
   ],
 })
 export class AdminModule {}
