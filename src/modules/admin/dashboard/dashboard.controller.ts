@@ -23,7 +23,7 @@ export class DashboardController {
     }
   }
 
-  @Patch('admin/service-booking/:id')
+  @Patch('service-booking/:id')
   async updateServiceStatus(
     @Param('id') id: string,
     @Body('action') action: 'accept' | 'reject'
@@ -37,4 +37,6 @@ export class DashboardController {
       }
     }
   }
+
+  
 }
