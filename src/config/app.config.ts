@@ -73,6 +73,7 @@ export default () => ({
     destination: '/destination/',
     blog: '/blog/',
     avatar: '/avatar/',
+    banner: 'banners/',
     license: '/license/',
     websiteInfo: '/website-info/',
     // chat

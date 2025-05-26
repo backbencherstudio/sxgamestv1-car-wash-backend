@@ -9,6 +9,8 @@ import { ServicesModule } from './services/services.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ManageBookingsModule } from './manage-bookings/manage-bookings.module';
 import { ScheduleCalenderModule } from './schedule-calender/schedule-calender.module';
+import { ProfileModule } from './profile/profile.module';
+import { CreateBlogModule } from './create-blog/create-blog.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { ScheduleCalenderModule } from './schedule-calender/schedule-calender.mo
     DashboardModule,
     ManageBookingsModule,
     ScheduleCalenderModule,
+    ProfileModule,
+    CreateBlogModule,
   ],
 })
 export class AdminModule {}

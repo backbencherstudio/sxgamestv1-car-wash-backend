@@ -26,6 +26,7 @@ export class DashboardService {
 
     const totalServiceRequests = await this.prisma.serviceBooking.count({
       where: {
+        status: 'pending',
         deleted_at: null
       }
     });

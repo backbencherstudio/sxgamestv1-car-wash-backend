@@ -35,4 +35,40 @@ export class ServiceBookingService {
       );
     }
   }
+
+  async getBookedDates() {
+      const bookedSlots = await this.prisma.serviceBooking.findMany({
+        where: {
+          deleted_at: null,
+          status: {
+            in: ['ongoing']
+          },
+          schedule_datetime: {
+            gte: new Date() // Only get current and future bookings
+          }
+        },
+        select: {
+          schedule_date: true,
+          schedule_time: true,
+          schedule_datetime: true,
+          service_type: true,
+          service_timing: true
+        },
+        orderBy: {
+          schedule_datetime: 'asc'
+        }
+      });
+  
+      return {
+        status: true,
+        message: 'Booked dates retrieved successfully',
+        data: bookedSlots.map(slot => ({
+          date: slot.schedule_date,
+          time: slot.schedule_time,
+          datetime: slot.schedule_datetime,
+          serviceType: slot.service_type,
+          serviceTiming: slot.service_timing
+        }))
+      };
+    }
 }

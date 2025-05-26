@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Get } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ServiceBookingService } from './service-booking.service';
 import { CreateServiceBookingDto } from './dto/create-service-booking.dto';
@@ -26,6 +26,16 @@ export class ServiceBookingController {
   async createInstant(@Req() req, @Body() createServiceBookingDto: CreateServiceBookingDto) {
     try {
       return await this.serviceBookingService.create(req.user.userId, createServiceBookingDto);
+    } catch (error) {
+      throw new Error(error);
+    }
+  }
+
+  @Get('booked-dates')
+  @ApiOperation({ summary: 'Get all booked dates and times' })
+  async getBookedDates() {
+    try {
+      return await this.serviceBookingService.getBookedDates();
     } catch (error) {
       throw new Error(error);
     }

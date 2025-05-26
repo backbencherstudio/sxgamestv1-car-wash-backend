@@ -45,6 +45,8 @@ model User {
   password   String? @db.VarChar(255)
   domain     String? @unique
   avatar     String?
+  aboutus    String?
+  banner     String?
 
   phone_number  String?
   country       String?
@@ -84,6 +86,8 @@ model User {
   service_bookings ServiceBooking[]
 
   subscriptions Subscription[]
+
+  blogs            Blog[]
 
   @@map("users")
 }
@@ -399,6 +403,7 @@ model ServiceProvider {
   date_of_birth     DateTime
   business_location String
   permanent_address String
+  aboutus           String?
 
   user_id String @unique
   user    User   @relation(fields: [user_id], references: [id])
@@ -489,5 +494,26 @@ model Plan {
   subscriptions Subscription[]
 
   @@map("plans")
+}
+
+model Blog {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+  status     Int?      @default(1) @db.SmallInt
+
+  title       String
+  slug        String   @unique
+  content     String   @db.Text
+  thumbnail   String?
+  category    String
+  views       Int      @default(0)
+  is_featured Boolean  @default(false)
+
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@map("blogs")
 }
 
