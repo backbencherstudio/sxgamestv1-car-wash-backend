@@ -24,6 +24,7 @@ import { ServiceProviderModule } from './modules/service-provider/service-provid
 import { UserDashboardModule } from './modules/user-dashboard/user-dashboard.module';
 import { ServiceBookingModule } from './modules/service-booking/service-booking.module';
 import { OrderHistoryModule } from './modules/order-history/order-history.module';
+import { BlogModule } from './modules/blog/blog.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { OrderHistoryModule } from './modules/order-history/order-history.module
     UserDashboardModule,
     ServiceBookingModule,
     OrderHistoryModule,
+    BlogModule,
   ],
   controllers: [AppController],
   providers: [
