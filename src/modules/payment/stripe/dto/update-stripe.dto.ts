@@ -1,4 +1,16 @@
 import { PartialType } from '@nestjs/swagger';
-import { CreateStripeDto } from './create-stripe.dto';
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
-export class UpdateStripeDto extends PartialType(CreateStripeDto) {}
+export class UpdateStripeDto{
+    @IsString()
+    @IsNotEmpty()
+    userId: string;
+
+    @IsEmail()
+    @IsNotEmpty()
+    email: string;
+
+    @IsString()
+    @IsNotEmpty()
+    paymentMethodId: string;
+}

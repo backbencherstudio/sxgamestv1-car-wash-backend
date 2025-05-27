@@ -13,7 +13,13 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto) {
     try {
-      const user = await UserRepository.createUser(createUserDto);
+      // Ensure avatar is included in the DTO
+      const userDataWithAvatar = {
+        ...createUserDto,
+        avatar: createUserDto.avatar || null
+      };
+
+      const user = await UserRepository.createUser(userDataWithAvatar);
 
       if (user.success) {
         return {
