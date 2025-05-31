@@ -79,6 +79,47 @@ export class StripeController {
     }
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('/instant-payment')
+  async createInstantPayment(
+    @Body() data: { 
+      email: string;
+      paymentMethodId: string;
+      userId: string;
+      amount: number;
+      currency?: string;
+    },
+    @Req() req: Request & { user?: { userId: string } }
+  ) {
+    try {
+      if (!req.user?.userId) {
+        throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+      }
+      console.log("data",data)
+      const result = await this.stripeService.createOneTimePayment(
+        data.email,
+        data.paymentMethodId,
+        data.userId,
+        data.amount,
+        data.currency
+      );
+      console.log("result",result)
+      return {
+        success: true,
+        message: 'Payment processed successfully',
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Payment processing failed',
+        },
+        HttpStatus.BAD_REQUEST
+      );
+    }
+  }
+
   @Post('/webhook')
   async handleWebhook(
     @Headers('stripe-signature') signature: string,
@@ -93,6 +134,12 @@ export class StripeController {
           const invoice = event.data.object as Stripe.Invoice & { subscription: string | Stripe.Subscription };
           console.log('[Info] Invoice paid:', invoice);
           await this.stripeService.handleSuccessfulPayment(invoice);
+          break;
+
+        case 'payment_intent.succeeded':
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          console.log('[Info] Payment Intent succeeded:', paymentIntent.id);
+          await this.stripeService.handleSuccessfulOneTimePayment(paymentIntent);
           break;
 
         case 'invoice.payment_failed':
@@ -117,4 +164,6 @@ export class StripeController {
       return res.status(400).json({ error: error.message });
     }
   }
+
+ 
 }

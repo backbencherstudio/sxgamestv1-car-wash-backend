@@ -343,7 +343,100 @@ export class StripeService {
     }
   }
   
+  async handleSuccessfulOneTimePayment(paymentIntent: Stripe.PaymentIntent) {
+    try {
+      // Update payment transaction status
+      await this.prisma.paymentTransaction.updateMany({
+        where: {
+          reference_number: paymentIntent.id,
+          status: 'pending',
+        },
+        data: {
+          status: 'completed',
+          paid_amount: paymentIntent.amount / 100,
+          paid_currency: paymentIntent.currency,
+        },
+      });
+
+      console.log(`✅ One-time payment ${paymentIntent.id} processed successfully`);
+    } catch (error) {
+      console.error(`[One-Time Payment Success Error]`, error.message);
+      throw new Error(`Failed to process one-time payment success: ${error.message}`);
+    }
+  }
   
-  
-  
+  async createOneTimePayment(
+    email: string,
+    paymentMethodId: string,
+    userId: string,
+    amount: number,
+    currency: string = 'usd',
+  ) {
+    try {
+      console.log(email, paymentMethodId, userId, amount, currency)
+      // Find or create customer
+      const existingCustomers = await this.stripe.customers.list({ email, limit: 1 });
+      let customer: Stripe.Customer;
+      console.log("existingCustomers", existingCustomers)
+      if (existingCustomers.data.length > 0) {
+        customer = existingCustomers.data[0];
+      } else {
+        customer = await this.stripe.customers.create({
+          email,
+          metadata: { userId },
+        });
+      }
+
+      // Attach payment method if not already attached
+      try {
+        await this.stripe.paymentMethods.attach(paymentMethodId, {
+          customer: customer.id,
+        });
+      } catch (err) {
+        if (err.code !== 'resource_already_attached') {
+          throw err;
+        }
+      }
+
+      // Create payment intent
+      const paymentIntent = await this.stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency,
+        customer: customer.id,
+        payment_method: paymentMethodId,
+        confirm: true,
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: 'never'
+        },
+        return_url: process.env.STRIPE_RETURN_URL || 'http://localhost:3000/payment/complete',
+      });
+
+      // Create payment transaction record
+      await this.prisma.paymentTransaction.create({
+        data: {
+          user_id: userId,
+          type: 'instant_service',
+          provider: 'stripe',
+          reference_number: paymentIntent.id,
+          status: paymentIntent.status === 'succeeded' ? 'completed' : 'pending',
+          amount: amount,
+          currency: currency,
+          paid_amount: paymentIntent.status === 'succeeded' ? amount : 0,
+          paid_currency: currency,
+        }
+      });
+
+      return {
+        success: true,
+        paymentIntentId: paymentIntent.id,
+        status: paymentIntent.status,
+        clientSecret: paymentIntent.client_secret,
+      };
+    } catch (error) {
+      console.error('[One-Time Payment Error]', error);
+      throw new Error(error.message);
+    }
+  }
+
 }
