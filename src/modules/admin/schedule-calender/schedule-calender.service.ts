@@ -14,7 +14,6 @@ export class ScheduleCalenderService {
     const startDate = new Date(parseInt(year), monthIndex, 1);
     const endDate = new Date(parseInt(year), monthIndex + 1, 0);
 
-    console.log(startDate, endDate)
     const bookings = await this.prisma.serviceBooking.findMany({
       where: {
         deleted_at: null,
@@ -43,7 +42,6 @@ export class ScheduleCalenderService {
         schedule_datetime: 'asc'
       }
     });
-    console.log(bookings)
 
     // Format the data for calendar view
     const formattedBookings = bookings.map(booking => ({

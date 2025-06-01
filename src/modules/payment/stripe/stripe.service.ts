@@ -14,6 +14,25 @@ export class StripeService {
     });
   }
 
+  async checkActiveSubscription(userId: string) {
+    try {
+      const activeSubscription = await this.prisma.subscription.findFirst({
+        where: {
+          user_id: userId,
+          is_active: true,
+          deleted_at: null,
+          status: 'active',
+          cancel_at_period_end: false,
+        },
+      });
+
+      return activeSubscription;
+    } catch (error) {
+      console.error('[Check Subscription Error]', error);
+      throw new Error('Failed to check subscription status');
+    }
+  }
+
   async createCustomerWithSubscription(
     email: string,
     paymentMethodId: string,
@@ -21,14 +40,12 @@ export class StripeService {
   ) {
     try {
       const priceId = process.env.STRIPE_MONTHLY_PRICE_ID;
-  
       const existingCustomers = await this.stripe.customers.list({ email, limit: 1 });
   
       let customer: Stripe.Customer;
   
       if (existingCustomers.data.length > 0) {
         customer = existingCustomers.data[0];
-        console.log('[Info] Reusing existing customer:', customer.id);
       } else {
         customer = await this.stripe.customers.create({
           email,
@@ -64,29 +81,67 @@ export class StripeService {
         expand: ['latest_invoice'],
       });
 
-      // Get plan details
-      const plan = await this.prisma.plan.findFirst({
+      // Get or create plan
+      let plan = await this.prisma.plan.findFirst({
         where: { stripe_price_id: priceId }
       });
 
       if (!plan) {
-        throw new Error('Plan not found for the given price ID');
+        // Create plan if it doesn't exist
+        plan = await this.prisma.plan.create({
+          data: {
+            name: 'Monthly Subscription',
+            description: 'Monthly subscription plan for car wash services',
+            price: subscription.items.data[0].price.unit_amount / 100,
+            currency: subscription.currency,
+            interval: 'month',
+            stripe_price_id: priceId,
+            status: 1
+          }
+        });
       }
 
-      // Create subscription record
-      const dbSubscription = await this.prisma.subscription.create({
-        data: {
+      // Check for existing subscription
+      const existingSubscription = await this.prisma.subscription.findFirst({
+        where: {
           user_id: userId,
-          stripe_customer_id: customer.id,
-          stripe_subscription_id: subscription.id,
-          plan_id: plan.id,
-          status: subscription.status,
-          is_active: subscription.status === 'active',
-          current_period_start: new Date(),
-          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-          cancel_at_period_end: subscription.cancel_at_period_end,
+          deleted_at: null
         }
       });
+
+      let dbSubscription;
+      if (existingSubscription) {
+        // Update existing subscription
+        dbSubscription = await this.prisma.subscription.update({
+          where: { id: existingSubscription.id },
+          data: {
+            stripe_customer_id: customer.id,
+            stripe_subscription_id: subscription.id,
+            plan_id: plan.id,
+            status: subscription.status,
+            is_active: subscription.status === 'active',
+            current_period_start: new Date(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            deleted_at: null // Reactivate if it was soft deleted
+          }
+        });
+      } else {
+        // Create new subscription if none exists
+        dbSubscription = await this.prisma.subscription.create({
+          data: {
+            user_id: userId,
+            stripe_customer_id: customer.id,
+            stripe_subscription_id: subscription.id,
+            plan_id: plan.id,
+            status: subscription.status,
+            is_active: subscription.status === 'active',
+            current_period_start: new Date(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+            cancel_at_period_end: subscription.cancel_at_period_end,
+          }
+        });
+      }
 
       // Create payment transaction record
       await this.prisma.paymentTransaction.create({
@@ -105,6 +160,7 @@ export class StripeService {
         customerId: customer.id,
         subscription: dbSubscription,
         stripeSubscription: subscription,
+        stripe_subscription_id: dbSubscription.stripe_subscription_id
       };
     } catch (error) {
       console.error('[Stripe Error]', error);
@@ -336,7 +392,6 @@ export class StripeService {
       //   );
       // }
   
-      console.log(`🛑 Subscription ${subscriptionId} cancelled successfully`);
     } catch (error) {
       console.error(`[Subscription Cancelled Error]`, error.message);
       throw new Error(`Failed to cancel subscription: ${error.message}`);
@@ -358,7 +413,6 @@ export class StripeService {
         },
       });
 
-      console.log(`✅ One-time payment ${paymentIntent.id} processed successfully`);
     } catch (error) {
       console.error(`[One-Time Payment Success Error]`, error.message);
       throw new Error(`Failed to process one-time payment success: ${error.message}`);
@@ -373,11 +427,9 @@ export class StripeService {
     currency: string = 'usd',
   ) {
     try {
-      console.log(email, paymentMethodId, userId, amount, currency)
       // Find or create customer
       const existingCustomers = await this.stripe.customers.list({ email, limit: 1 });
       let customer: Stripe.Customer;
-      console.log("existingCustomers", existingCustomers)
       if (existingCustomers.data.length > 0) {
         customer = existingCustomers.data[0];
       } else {

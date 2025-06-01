@@ -21,6 +21,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { SubscriptionGuard } from './guards/subscription.guard';
 import appConfig from '../../config/app.config';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -31,7 +32,7 @@ export class AuthController {
 
   @ApiOperation({ summary: 'Get user details' })
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard )
   @Get('me')
   async me(@Req() req: Request) {
     try {
@@ -93,7 +94,6 @@ export class AuthController {
   async login(@Req() req: Request) {
     try {
       const user_id = req.user.id;
-
       const user_email = req.user.email;
 
       const response = await this.authService.login({

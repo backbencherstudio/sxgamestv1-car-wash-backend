@@ -50,7 +50,6 @@ export class ServicesController {
     @UploadedFile() additionalImage?: Express.Multer.File,
   ) {
     try {
-      // console.log(createServiceDto, additionalImage)
       return await this.servicesService.create(createServiceDto, additionalImage);
     } catch (error) {
       throw new Error(error);
@@ -58,8 +57,6 @@ export class ServicesController {
   }
 
   @Get()
-  
-  
   @ApiOperation({ summary: 'Get all services' })
   async findAll() {
     try {

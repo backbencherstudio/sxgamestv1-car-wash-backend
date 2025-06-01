@@ -62,11 +62,9 @@ export class NotificationGateway
   }
 
   async handleConnection(client: Socket, ...args: any[]) {
-    // console.log('new connection!', client.id);
     const userId = client.handshake.query.userId as string; // User ID passed as query parameter
     if (userId) {
       this.clients.set(userId, client.id);
-      console.log(`User ${userId} connected with socket ${client.id}`);
     }
   }
 
@@ -77,7 +75,6 @@ export class NotificationGateway
     )?.[0];
     if (userId) {
       this.clients.delete(userId);
-      console.log(`User ${userId} disconnected`);
     }
   }
 

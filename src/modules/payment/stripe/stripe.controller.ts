@@ -21,10 +21,21 @@ export class StripeController {
   constructor(private readonly stripeService: StripeService) {}
 
   @Post('/subscribe')
-  async subscribe(@Body() dto: CreateSubscriptionDto) {
+  async subscribe(
+    @Body() dto: CreateSubscriptionDto,
+  ) {
     const { email, paymentMethodId, userId } = dto;
 
     try {
+      // Check if user already has an active subscription
+      const existingSubscription = await this.stripeService.checkActiveSubscription(userId);
+      if (existingSubscription) {
+        throw new HttpException(
+          'User already has an active subscription',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
       const { customerId, subscription } =
         await this.stripeService.createCustomerWithSubscription(email, paymentMethodId, userId);
 
@@ -35,7 +46,13 @@ export class StripeController {
         subscriptionId: subscription.id,
       };
     } catch (error) {
-      return { success: false, message: error.message };
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Subscription creation failed',
+        },
+        HttpStatus.BAD_REQUEST
+      );
     }
   }
 
@@ -95,7 +112,6 @@ export class StripeController {
       if (!req.user?.userId) {
         throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
       }
-      console.log("data",data)
       const result = await this.stripeService.createOneTimePayment(
         data.email,
         data.paymentMethodId,
@@ -103,7 +119,6 @@ export class StripeController {
         data.amount,
         data.currency
       );
-      console.log("result",result)
       return {
         success: true,
         message: 'Payment processed successfully',
@@ -132,13 +147,11 @@ export class StripeController {
       switch (event.type) {
         case 'invoice.paid':
           const invoice = event.data.object as Stripe.Invoice & { subscription: string | Stripe.Subscription };
-          console.log('[Info] Invoice paid:', invoice);
           await this.stripeService.handleSuccessfulPayment(invoice);
           break;
 
         case 'payment_intent.succeeded':
           const paymentIntent = event.data.object as Stripe.PaymentIntent;
-          console.log('[Info] Payment Intent succeeded:', paymentIntent.id);
           await this.stripeService.handleSuccessfulOneTimePayment(paymentIntent);
           break;
 

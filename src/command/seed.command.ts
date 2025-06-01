@@ -17,8 +17,6 @@ export class SeedCommand extends CommandRunner {
 
   async seed(param: string[]) {
     try {
-      console.log(`Prisma Env: ${process.env.PRISMA_ENV}`);
-      console.log('Seeding started...');
 
       // begin transaaction
       await this.prisma.$transaction(async ($tx) => {
@@ -28,7 +26,6 @@ export class SeedCommand extends CommandRunner {
         await this.permissionRoleSeed();
       });
 
-      console.log('Seeding done.');
     } catch (error) {
       throw error;
     }

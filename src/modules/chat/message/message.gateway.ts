@@ -48,7 +48,6 @@ export class MessageGateway
       const token = client.handshake.auth.token;
       if (!token) {
         client.disconnect();
-        console.log('No token provided');
         return;
       }
 
@@ -58,7 +57,6 @@ export class MessageGateway
       const userId = decoded.sub;
       if (!userId) {
         client.disconnect();
-        console.log('Invalid token');
         return;
       }
 
@@ -71,7 +69,6 @@ export class MessageGateway
         status: 'online',
       });
 
-      console.log(`User ${userId} connected`);
     } catch (error) {
       client.disconnect();
       console.error('Error handling connection:', error);
@@ -91,7 +88,6 @@ export class MessageGateway
         status: 'offline',
       });
 
-      console.log(`User ${userId} disconnected`);
     }
   }
 
@@ -159,7 +155,6 @@ export class MessageGateway
   @SubscribeMessage('join')
   handleJoin(client: Socket, { username }: { username: string }) {
     this.activeUsers.set(username, client.id);
-    console.log(`${username} joined`);
   }
 
   @SubscribeMessage('call')
