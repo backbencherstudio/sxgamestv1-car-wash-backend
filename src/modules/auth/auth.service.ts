@@ -237,22 +237,22 @@ export class AuthService {
   async login({ email, userId }) {
     try {
       // Check for active subscription
-      const subscription = await this.prisma.subscription.findFirst({
-        where: {
-          user_id: userId,
-          is_active: true,
-          deleted_at: null,
-          status: 'active',
-          cancel_at_period_end: false
-        }
-      });
+      // const subscription = await this.prisma.subscription.findFirst({
+      //   where: {
+      //     user_id: userId,
+      //     is_active: true,
+      //     deleted_at: null,
+      //     status: 'active',
+      //     cancel_at_period_end: false
+      //   }
+      // });
 
-      if (!subscription) {
-        return {
-          success: false,
-          message: 'No active subscription found. Please subscribe to continue.',
-        };
-      }
+      // if (!subscription) {
+      //   return {
+      //     success: false,
+      //     message: 'No active subscription found. Please subscribe to continue.',
+      //   };
+      // }
 
       const payload = { email: email, sub: userId };
       const token = this.jwtService.sign(payload);
