@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, UploadedFiles, UseInterceptors, Param, Delete, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, UploadedFiles, UseInterceptors, Param, Delete, Get, Query, Patch } from '@nestjs/common';
 import { CreateBlogService } from './create-blog.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
@@ -59,7 +59,7 @@ export class CreateBlogController {
     }
   }
 
-  @Post(':id')
+  @Patch(':id')
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'thumbnail', maxCount: 1 }
