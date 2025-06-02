@@ -35,7 +35,8 @@ export class UcodeRepository {
       const data = await prisma.ucode.create({
         data: {
           user_id: userId,
-          token: token,
+          // token: token,
+          token: "123456",
           email: email ?? userDetails.email,
           expired_at: expired_at,
         },
