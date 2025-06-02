@@ -28,16 +28,12 @@ export class BlogService {
       });
 
       // Add thumbnail URLs
-      const blogsWithUrls = blogs.map(blog => ({
-        ...blog,
-        thumbnail_url: blog.thumbnail ? 
-          SojebStorage.url(appConfig().storageUrl.blog + blog.thumbnail) : null,
-        user: {
-          ...blog.user,
-          avatar_url: blog.user.avatar ? 
-            SojebStorage.url(appConfig().storageUrl.avatar + blog.user.avatar) : null
+      const blogsWithUrls = blogs.map(blog => {
+        if (blog.thumbnail) {
+          blog['thumbnail_url'] = 'public/storage' + appConfig().storageUrl.blog + blog.thumbnail;
         }
-      }));
+        return blog;
+      });
 
       return {
         success: true,
@@ -80,7 +76,7 @@ export class BlogService {
       const blogWithUrls = {
         ...blog,
         thumbnail_url: blog.thumbnail ? 
-          SojebStorage.url(appConfig().storageUrl.blog + blog.thumbnail) : null,
+          'public/storage' + appConfig().storageUrl.blog + blog.thumbnail : null,
         user: {
           ...blog.user,
           avatar_url: blog.user.avatar ? 
