@@ -36,6 +36,8 @@ CREATE TABLE "users" (
     "password" VARCHAR(255),
     "domain" TEXT,
     "avatar" TEXT,
+    "aboutus" TEXT,
+    "banner" TEXT,
     "phone_number" TEXT,
     "country" TEXT,
     "state" TEXT,
@@ -316,6 +318,124 @@ CREATE TABLE "user_settings" (
 );
 
 -- CreateTable
+CREATE TABLE "service_providers" (
+    "id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+    "status" SMALLINT DEFAULT 1,
+    "business_name" TEXT NOT NULL,
+    "business_number" TEXT NOT NULL,
+    "profile_picture" TEXT,
+    "license_front" TEXT NOT NULL,
+    "license_back" TEXT NOT NULL,
+    "nid_number" TEXT NOT NULL,
+    "license_number" TEXT NOT NULL,
+    "date_of_birth" TIMESTAMP(3) NOT NULL,
+    "business_location" TEXT NOT NULL,
+    "permanent_address" TEXT NOT NULL,
+    "aboutus" TEXT,
+    "user_id" TEXT NOT NULL,
+
+    CONSTRAINT "service_providers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "services" (
+    "id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+    "status" SMALLINT DEFAULT 1,
+    "name" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "location" TEXT NOT NULL,
+    "available_time" TEXT NOT NULL,
+    "team_size" INTEGER NOT NULL,
+    "description" TEXT NOT NULL,
+    "is_mobile" BOOLEAN NOT NULL DEFAULT false,
+    "is_garage" BOOLEAN NOT NULL DEFAULT false,
+    "image" TEXT,
+
+    CONSTRAINT "services_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "service_bookings" (
+    "id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "service_type" TEXT NOT NULL,
+    "service_timing" TEXT NOT NULL DEFAULT 'scheduled',
+    "location" TEXT NOT NULL,
+    "schedule_date" TEXT NOT NULL,
+    "schedule_time" TEXT NOT NULL,
+    "schedule_datetime" TIMESTAMP(3) NOT NULL,
+    "user_id" TEXT NOT NULL,
+
+    CONSTRAINT "service_bookings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "subscriptions" (
+    "id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+    "user_id" TEXT NOT NULL,
+    "stripe_customer_id" TEXT NOT NULL,
+    "stripe_subscription_id" TEXT NOT NULL,
+    "plan_id" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT false,
+    "current_period_start" TIMESTAMP(3) NOT NULL,
+    "current_period_end" TIMESTAMP(3) NOT NULL,
+    "cancel_at_period_end" BOOLEAN NOT NULL DEFAULT false,
+    "canceled_at" TIMESTAMP(3),
+
+    CONSTRAINT "subscriptions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "plans" (
+    "id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+    "status" SMALLINT DEFAULT 1,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "price" DECIMAL(65,30) NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'USD',
+    "interval" TEXT NOT NULL DEFAULT 'month',
+    "stripe_price_id" TEXT NOT NULL,
+
+    CONSTRAINT "plans_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "blogs" (
+    "id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP(3),
+    "status" SMALLINT DEFAULT 1,
+    "title" TEXT NOT NULL,
+    "sub_title" TEXT,
+    "slug" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "thumbnail" TEXT,
+    "category" TEXT NOT NULL,
+    "views" INTEGER NOT NULL DEFAULT 0,
+    "is_featured" BOOLEAN NOT NULL DEFAULT false,
+    "user_id" TEXT NOT NULL,
+
+    CONSTRAINT "blogs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_PermissionToRole" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -337,6 +457,18 @@ CREATE UNIQUE INDEX "users_domain_key" ON "users"("domain");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "settings_key_key" ON "settings"("key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "service_providers_user_id_key" ON "service_providers"("user_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "subscriptions_stripe_subscription_id_key" ON "subscriptions"("stripe_subscription_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "plans_stripe_price_id_key" ON "plans"("stripe_price_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "blogs_slug_key" ON "blogs"("slug");
 
 -- CreateIndex
 CREATE INDEX "_PermissionToRole_B_index" ON "_PermissionToRole"("B");
@@ -400,6 +532,21 @@ ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_setting_id_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "service_providers" ADD CONSTRAINT "service_providers_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "service_bookings" ADD CONSTRAINT "service_bookings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_plan_id_fkey" FOREIGN KEY ("plan_id") REFERENCES "plans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "blogs" ADD CONSTRAINT "blogs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_PermissionToRole" ADD CONSTRAINT "_PermissionToRole_A_fkey" FOREIGN KEY ("A") REFERENCES "permissions"("id") ON DELETE CASCADE ON UPDATE CASCADE;

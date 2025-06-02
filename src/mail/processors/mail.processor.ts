@@ -2,6 +2,7 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
+import appConfig from '../../config/app.config';
 
 @Processor('mail-queue')
 export class MailProcessor extends WorkerHost {
@@ -38,13 +39,28 @@ export class MailProcessor extends WorkerHost {
           break;
         case 'sendOtpCodeToEmail':
           this.logger.log('Sending OTP code to email');
-          await this.mailerService.sendMail({
-            to: job.data.to,
-            from: job.data.from,
-            subject: job.data.subject,
-            template: job.data.template,
-            context: job.data.context,
-          });
+          try {
+            await this.mailerService.sendMail({
+              to: job.data.to,
+              from: job.data.from,
+              subject: job.data.subject,
+              template: job.data.template,
+              context: job.data.context,
+            });
+            this.logger.log(`Successfully sent OTP email to ${job.data.to}`);
+          } catch (emailError) {
+            this.logger.error(`Failed to send OTP email to ${job.data.to}:`, {
+              error: emailError.message,
+              stack: emailError.stack,
+              jobData: job.data,
+              smtpConfig: {
+                host: appConfig().mail.host,
+                port: appConfig().mail.port,
+                user: appConfig().mail.user ? '***' : 'not set'
+              }
+            });
+            throw emailError;
+          }
           break;
 
         default:

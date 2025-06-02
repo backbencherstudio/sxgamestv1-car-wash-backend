@@ -504,7 +504,8 @@ model Blog {
   status     Int?      @default(1) @db.SmallInt
 
   title       String
-  slug        String   @unique
+  sub_title   String? 
+  slug        String?  @unique
   content     String   @db.Text
   thumbnail   String?
   category    String

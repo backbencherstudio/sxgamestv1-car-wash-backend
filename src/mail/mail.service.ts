@@ -36,8 +36,18 @@ export class MailService {
   // send otp code for email verification
   async sendOtpCodeToEmail({ name, email, otp }) {
     try {
-      const from = `${process.env.APP_NAME} <${appConfig().mail.from}>`;
+      // Validate email configuration
+      if (!appConfig().mail.user || !appConfig().mail.password) {
+        throw new Error('Mail configuration is incomplete. Please check MAIL_USERNAME and MAIL_PASSWORD environment variables.');
+      }
+
+      const from = `${appConfig().mail.from} <${appConfig().mail.user}>`;
       const subject = 'Email Verification';
+
+      // Validate email format
+      if (!email || !email.includes('@')) {
+        throw new Error('Invalid email address format');
+      }
 
       // add to queue
       await this.queue.add('sendOtpCodeToEmail', {
@@ -51,7 +61,19 @@ export class MailService {
         },
       });
     } catch (error) {
-      console.log(error);
+      console.error('Failed to send OTP email:', {
+        error: error.message,
+        stack: error.stack,
+        email,
+        name,
+        mailConfig: {
+          host: appConfig().mail.host,
+          port: appConfig().mail.port,
+          user: appConfig().mail.user ? '***' : 'not set',
+          from: appConfig().mail.from
+        }
+      });
+      throw new Error(`Failed to send OTP email: ${error.message}`);
     }
   }
 

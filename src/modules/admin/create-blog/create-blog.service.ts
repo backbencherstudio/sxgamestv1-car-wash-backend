@@ -11,36 +11,27 @@ export class CreateBlogService {
     userId: string,
     createBlogDto: {
       title: string;
+      sub_title: string;
       content: string;
       category: string;
       is_featured: string;
     },
     files: {
-      thumbnail?: Express.Multer.File[];
+      thumbnail?: string;
     }
   ) {
     try {
-      let thumbnailFileName = null;
-
-      if (files.thumbnail?.[0]) {
-        const fileName = `${Date.now()}-${files.thumbnail[0].originalname}`;
-        await SojebStorage.put(
-          `blog/${fileName}`,
-          files.thumbnail[0].buffer
-        );
-        thumbnailFileName = fileName;
-      }
-
       const slug = this.createSlug(createBlogDto.title);
 
       const blog = await this.prisma.blog.create({
         data: {
           title: createBlogDto.title,
+          sub_title: createBlogDto.sub_title,
           slug: slug,
           content: createBlogDto.content,
           category: createBlogDto.category,
           is_featured: createBlogDto.is_featured === 'true',
-          thumbnail: thumbnailFileName,
+          thumbnail: files.thumbnail || null,
           user_id: userId,
         },
         include: {
@@ -54,9 +45,7 @@ export class CreateBlogService {
       });
 
       if (blog.thumbnail) {
-        blog['thumbnail_url'] = SojebStorage.url(
-          appConfig().storageUrl.blog + blog.thumbnail,
-        );
+        blog['thumbnail_url'] = 'public/storage' + appConfig().storageUrl.blog + blog.thumbnail;
       }
 
       return {
@@ -73,11 +62,12 @@ export class CreateBlogService {
   }
 
   private createSlug(title: string): string {
+    const timestamp = Date.now();
     return title
       .toLowerCase()
       .trim()
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/^-+|-+$/g, '') + '-' + timestamp;
   }
 }
