@@ -216,7 +216,7 @@ export class CreateBlogService {
       // Add thumbnail URLs
       const blogsWithUrls = blogs.map(blog => {
         if (blog.thumbnail) {
-          blog['thumbnail_url'] = '/storage' + appConfig().storageUrl.blog + blog.thumbnail;
+          blog['thumbnail_url'] = 'public/storage' + appConfig().storageUrl.blog + blog.thumbnail;
         }
         return blog;
       });
@@ -266,7 +266,7 @@ export class CreateBlogService {
 
       // Add thumbnail URL
       if (blog.thumbnail) {
-        blog['thumbnail_url'] = '/storage' + appConfig().storageUrl.blog + blog.thumbnail;
+        blog['thumbnail_url'] = 'public/storage' + appConfig().storageUrl.blog + blog.thumbnail;
       }
 
       // Increment view count
