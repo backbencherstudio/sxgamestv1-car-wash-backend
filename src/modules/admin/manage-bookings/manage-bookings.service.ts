@@ -114,4 +114,39 @@ export class ManageBookingsService {
       data: completedBookings
     };
   }
+
+  async updateCompletedStatus(id: string, action: 'completed' | 'cancelled') {
+    const status = action === 'completed' ? 'completed' : 'cancelled';
+
+    const updatedBooking = await this.prisma.serviceBooking.update({
+      where: { id, status: 'ongoing' },
+      data: { status },
+      select: {
+        id: true,
+        status: true,
+        service_type: true,
+        location: true,
+        schedule_datetime: true,
+        user: {
+          select: {
+            name: true
+          }
+        }
+      }
+    });
+
+    return {
+      status: true,
+      message: `Service booking ${action} successfully`,
+      data: {
+        orderId: updatedBooking.id,
+        userName: updatedBooking.user.name,
+        serviceName: updatedBooking.service_type,
+        serviceType: updatedBooking.service_type,
+        location: updatedBooking.location,
+        serviceDate: updatedBooking.schedule_datetime,
+        status: updatedBooking.status
+      }
+    };
+  }
 }

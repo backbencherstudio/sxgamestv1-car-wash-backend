@@ -40,60 +40,70 @@ export class DashboardService {
 
     // Get revenue statistics
     const startDate = new Date();
-    startDate.setDate(1);
     if (period === 'yearly') {
-      startDate.setMonth(0); // January
+      // For monthly period, get data for current month and previous 11 months
+      startDate.setMonth(startDate.getMonth() - 11);
+    } else {
+      // For yearly period, get data for last two years
+      startDate.setFullYear(startDate.getFullYear() - 1);
     }
+    startDate.setDate(1);
+    startDate.setMonth(0); // Start from January of that year
 
     // Get subscriber statistics
     const subscriberStats = await this.prisma.$queryRaw`
-      WITH years AS (
+      WITH months AS (
         SELECT generate_series(
-          DATE_TRUNC('year', ${startDate}::timestamp),
-          DATE_TRUNC('year', CURRENT_DATE),
-          '1 year'::interval
+          DATE_TRUNC('month', ${startDate}::timestamp),
+          DATE_TRUNC('month', CURRENT_DATE),
+          '1 month'::interval
         ) AS date
       )
       SELECT 
-        EXTRACT(YEAR FROM years.date) as date,
+        EXTRACT(YEAR FROM months.date) as year,
+        EXTRACT(MONTH FROM months.date) as month_num,
         COUNT(s.id) as count
-      FROM years
+      FROM months
       LEFT JOIN "subscriptions" s ON 
-        DATE_TRUNC('year', s.created_at) = years.date
+        DATE_TRUNC('month', s.created_at) = months.date
         AND s.deleted_at IS NULL
-      GROUP BY years.date
-      ORDER BY years.date ASC
+      GROUP BY year, month_num
+      ORDER BY year ASC, month_num ASC
     `;
 
     const formattedSubscriberStats = (subscriberStats as any[]).map(stat => ({
-      date: stat.date.toString(),
-      count: Number(stat.count)
+      year: Number(stat.year),
+      month: new Date(stat.year, stat.month_num - 1, 1).toLocaleString('default', { month: 'short' }),
+      subscription: Number(stat.count)
     }));
 
     // Get revenue statistics
     const revenueStats = await this.prisma.$queryRaw`
-      WITH years AS (
+      WITH months AS (
         SELECT generate_series(
-          DATE_TRUNC('year', ${startDate}::timestamp),
-          DATE_TRUNC('year', CURRENT_DATE),
-          '1 year'::interval
+          DATE_TRUNC('month', ${startDate}::timestamp),
+          DATE_TRUNC('month', CURRENT_DATE),
+          '1 month'::interval
         ) AS date
       )
-      SELECT 
-        EXTRACT(YEAR FROM years.date) as date,
+      SELECT
+        EXTRACT(YEAR FROM months.date) as year,
+        EXTRACT(MONTH FROM months.date) as month_num,
         COALESCE(SUM(pt.amount), 0) as total_amount
-      FROM years
-      LEFT JOIN "payment_transactions" pt ON 
-        DATE_TRUNC('year', pt.created_at) = years.date
+      FROM months
+      LEFT JOIN "payment_transactions" pt ON
+        DATE_TRUNC('month', pt.created_at) = months.date
         AND pt.status = 'completed'
         AND pt.deleted_at IS NULL
-      GROUP BY years.date
-      ORDER BY years.date ASC
+      GROUP BY year, month_num
+      ORDER BY year ASC, month_num ASC
     `;
 
     const formattedStats = (revenueStats as any[]).map(stat => ({
-      date: stat.date.toString(),
-      amount: Number(stat.total_amount) || 0
+      year: Number(stat.year),
+      // Map month number to month name (basic example, could use a library or map)
+      month: new Date(stat.year, stat.month_num - 1, 1).toLocaleString('default', { month: 'short' }),
+      revenue: Number(stat.total_amount) || 0
     }));
 
     // Get recent pending orders

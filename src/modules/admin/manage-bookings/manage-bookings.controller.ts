@@ -41,4 +41,21 @@ export class ManageBookingsController {
       }
     }
   }
+
+  @Patch('completed-bookings/:id')
+  async updateCompletedStatus(
+    @Param('id') id: string,
+    @Body('action') action: 'completed' | 'cancelled'
+  ) {
+    try {
+      return this.manageBookingsService.updateCompletedStatus(id, action);
+    } catch (error) {
+      return {
+        status: false,
+        message: error.message,
+      }
+    }
+  }
+
+
 }
