@@ -118,8 +118,17 @@ export class ManageBookingsService {
   async updateCompletedStatus(id: string, action: 'completed' | 'cancelled') {
     const status = action === 'completed' ? 'completed' : 'cancelled';
 
+    // First check if the booking exists
+    const booking = await this.prisma.serviceBooking.findUnique({
+      where: { id }
+    });
+
+    if (!booking) {
+      throw new Error('Booking not found');
+    }
+
     const updatedBooking = await this.prisma.serviceBooking.update({
-      where: { id, status: 'ongoing' },
+      where: { id },
       data: { status },
       select: {
         id: true,

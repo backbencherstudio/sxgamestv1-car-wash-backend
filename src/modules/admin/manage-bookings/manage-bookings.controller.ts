@@ -48,6 +48,7 @@ export class ManageBookingsController {
     @Body('action') action: 'completed' | 'cancelled'
   ) {
     try {
+      console.log(action)
       return this.manageBookingsService.updateCompletedStatus(id, action);
     } catch (error) {
       return {
