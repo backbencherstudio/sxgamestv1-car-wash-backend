@@ -161,13 +161,30 @@ export class ProfileService {
             address: updateData.address,
             date_of_birth: new Date(updateData.date_of_birth),
             ...(avatarFileName && { avatar: avatarFileName }),
-            ...(bannerFileName && { banner: bannerFileName }),  // Add banner update
+            ...(bannerFileName && { banner: bannerFileName }),
             service_provider: {
-              update: {
-                business_location: updateData.business_location,
-                ...(licenseFrontFileName && { license_front: licenseFrontFileName }),
-                ...(licenseBackFileName && { license_back: licenseBackFileName }),
-                aboutus: updateData.about
+              upsert: {
+                create: {
+                  business_name: updateData.name || '',
+                  business_number: '',
+                  nid_number: '',
+                  license_number: '',
+                  business_location: updateData.business_location,
+                  permanent_address: updateData.address || '',
+                  date_of_birth: new Date(updateData.date_of_birth),
+                  license_front: licenseFrontFileName || '',
+                  license_back: licenseBackFileName || '',
+                  aboutus: updateData.about
+                },
+                update: {
+                  business_name: updateData.name || '',
+                  business_location: updateData.business_location,
+                  permanent_address: updateData.address || '',
+                  date_of_birth: new Date(updateData.date_of_birth),
+                  ...(licenseFrontFileName && { license_front: licenseFrontFileName }),
+                  ...(licenseBackFileName && { license_back: licenseBackFileName }),
+                  aboutus: updateData.about
+                }
               }
             }
           },
