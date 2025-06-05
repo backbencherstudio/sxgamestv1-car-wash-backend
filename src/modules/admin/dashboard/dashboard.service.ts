@@ -51,60 +51,87 @@ export class DashboardService {
     startDate.setMonth(0); // Start from January of that year
 
     // Get subscriber statistics
-    const subscriberStats = await this.prisma.$queryRaw`
-      WITH months AS (
-        SELECT generate_series(
-          DATE_TRUNC('month', ${startDate}::timestamp),
-          DATE_TRUNC('month', CURRENT_DATE),
-          '1 month'::interval
-        ) AS date
-      )
-      SELECT 
-        EXTRACT(YEAR FROM months.date) as year,
-        EXTRACT(MONTH FROM months.date) as month_num,
-        COUNT(s.id) as count
-      FROM months
-      LEFT JOIN "subscriptions" s ON 
-        DATE_TRUNC('month', s.created_at) = months.date
-        AND s.deleted_at IS NULL
-      GROUP BY year, month_num
-      ORDER BY year ASC, month_num ASC
-    `;
+    const subscriberStats = await this.prisma.subscription.groupBy({
+      by: ['created_at'],
+      where: {
+        deleted_at: null,
+        created_at: {
+          gte: startDate
+        }
+      },
+      _count: {
+        id: true
+      },
+      orderBy: {
+        created_at: 'asc'
+      }
+    });
 
-    const formattedSubscriberStats = (subscriberStats as any[]).map(stat => ({
-      year: Number(stat.year),
-      month: new Date(stat.year, stat.month_num - 1, 1).toLocaleString('default', { month: 'short' }),
-      subscription: Number(stat.count)
+    const formattedSubscriberStats = subscriberStats.map(stat => ({
+      year: stat.created_at.getFullYear(),
+      month: stat.created_at.toLocaleString('default', { month: 'short' }),
+      subscription: stat._count.id
     }));
+
+    // Get unique years from subscriber stats
+    const subscriberYears = [...new Set(formattedSubscriberStats.map(stat => stat.year))].sort();
+
+    // Create a complete dataset with all months for each year for subscribers
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const completeSubscriberStats = subscriberYears.flatMap(year => 
+      months.map(month => {
+        const existingStat = formattedSubscriberStats.find(stat => 
+          stat.year === year && stat.month === month
+        );
+        return {
+          year,
+          month,
+          subscription: existingStat ? existingStat.subscription : 0
+        };
+      })
+    );
 
     // Get revenue statistics
-    const revenueStats = await this.prisma.$queryRaw`
-      WITH months AS (
-        SELECT generate_series(
-          DATE_TRUNC('month', ${startDate}::timestamp),
-          DATE_TRUNC('month', CURRENT_DATE),
-          '1 month'::interval
-        ) AS date
-      )
-      SELECT
-        EXTRACT(YEAR FROM months.date) as year,
-        EXTRACT(MONTH FROM months.date) as month_num,
-        COALESCE(SUM(pt.amount), 0) as total_amount
-      FROM months
-      LEFT JOIN "payment_transactions" pt ON
-        DATE_TRUNC('month', pt.created_at) = months.date
-        AND pt.status = 'completed'
-        AND pt.deleted_at IS NULL
-      GROUP BY year, month_num
-      ORDER BY year ASC, month_num ASC
-    `;
+    const revenueStats = await this.prisma.paymentTransaction.groupBy({
+      by: ['created_at'],
+      where: {
+        status: 'completed',
+        deleted_at: null,
+        created_at: {
+          gte: startDate
+        }
+      },
+      _sum: {
+        paid_amount: true,
+        amount: true
+      },
+      orderBy: {
+        created_at: 'asc'
+      }
+    });
 
-    const formattedStats = (revenueStats as any[]).map(stat => ({
-      year: Number(stat.year),
-      // Map month number to month name (basic example, could use a library or map)
-      month: new Date(stat.year, stat.month_num - 1, 1).toLocaleString('default', { month: 'short' }),
-      revenue: Number(stat.total_amount) || 0
+    const formattedStats = revenueStats.map(stat => ({
+      year: stat.created_at.getFullYear(),
+      month: stat.created_at.toLocaleString('default', { month: 'short' }),
+      revenue: Number(stat._sum.paid_amount || stat._sum.amount || 0)
     }));
+
+    // Get unique years from revenue stats
+    const revenueYears = [...new Set(formattedStats.map(stat => stat.year))].sort();
+
+    // Create a complete dataset with all months for each year for revenue
+    const completeRevenueStats = revenueYears.flatMap(year => 
+      months.map(month => {
+        const existingStat = formattedStats.find(stat => 
+          stat.year === year && stat.month === month
+        );
+        return {
+          year,
+          month,
+          revenue: existingStat ? existingStat.revenue : 0
+        };
+      })
+    );
 
     // Get recent pending orders
     const recentOrders = await this.prisma.serviceBooking.findMany({
@@ -145,11 +172,13 @@ export class DashboardService {
       ongoingWorkCount,
       revenueStatistics: {
         period,
-        data: formattedStats
+        years: revenueYears,
+        data: completeRevenueStats
       },
       subscriberStatistics: {
         period,
-        data: formattedSubscriberStats
+        years: subscriberYears,
+        data: completeSubscriberStats
       },
       recentOrders: formattedRecentOrders
     };
