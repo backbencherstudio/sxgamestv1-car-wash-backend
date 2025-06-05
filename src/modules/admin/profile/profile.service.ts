@@ -129,14 +129,23 @@ export class ProfileService {
       }
     ) {
       try {
-        console.log(updateData.about);
+        // Get current user data to delete old files
+        const currentUser = await this.prisma.user.findUnique({
+          where: { id: userId },
+          include: { service_provider: true }
+        });
+
         // Handle file uploads
         let avatarFileName = null;
-        let bannerFileName = null;  // Add banner variable
+        let bannerFileName = null;
         let licenseFrontFileName = null;
         let licenseBackFileName = null;
   
         if (files.avatar?.[0]) {
+          // Delete old avatar if exists
+          if (currentUser.avatar) {
+            await SojebStorage.delete(`avatar/${currentUser.avatar}`);
+          }
           const fileName = `${Date.now()}-${files.avatar[0].originalname}`;
           await SojebStorage.put(
             `avatar/${fileName}`,
@@ -146,6 +155,10 @@ export class ProfileService {
         }
   
         if (files.banner?.[0]) {
+          // Delete old banner if exists
+          if (currentUser.banner) {
+            await SojebStorage.delete(`banner/${currentUser.banner}`);
+          }
           const fileName = `${Date.now()}-${files.banner[0].originalname}`;
           await SojebStorage.put(
             `banner/${fileName}`,
@@ -155,6 +168,10 @@ export class ProfileService {
         }
   
         if (files.license_front?.[0]) {
+          // Delete old license front if exists
+          if (currentUser.service_provider?.license_front) {
+            await SojebStorage.delete(`license/${currentUser.service_provider.license_front}`);
+          }
           const fileName = `${Date.now()}-${files.license_front[0].originalname}`;
           await SojebStorage.put(
             `license/${fileName}`,
@@ -164,6 +181,10 @@ export class ProfileService {
         }
   
         if (files.license_back?.[0]) {
+          // Delete old license back if exists
+          if (currentUser.service_provider?.license_back) {
+            await SojebStorage.delete(`license/${currentUser.service_provider.license_back}`);
+          }
           const fileName = `${Date.now()}-${files.license_back[0].originalname}`;
           await SojebStorage.put(
             `license/${fileName}`,
