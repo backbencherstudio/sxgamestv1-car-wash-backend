@@ -39,7 +39,9 @@ export class ProfileService {
           created_at: true,
           updated_at: true,
           status: true,
+          aboutus: true,
           availability: true,
+          banner:true,
           service_provider: {
             select: {
               business_name: true,
@@ -71,11 +73,29 @@ export class ProfileService {
         };
       }
 
-      // Handle avatar URL
+      // // Handle avatar URL
+      // if (user.avatar) {
+      //   user['avatar_url'] = SojebStorage.url(
+      //     appConfig().storageUrl.avatar + user.avatar,
+      //   );
+      // }
+
+      // Add avatar URL
       if (user.avatar) {
-        user['avatar_url'] = SojebStorage.url(
-          appConfig().storageUrl.avatar + user.avatar,
-        );
+        user['avatar_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.avatar + user.avatar;
+      }
+
+      // Add license URLs if they exist in service_provider
+      if (user.service_provider) {
+        if (user.service_provider.license_front) {
+          user.service_provider['license_front_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.license + user.service_provider.license_front;
+        }
+        if (user.service_provider.license_back) {
+          user.service_provider['license_back_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.license + user.service_provider.license_back;
+        }
+      }
+      if (user.banner) {
+          user['banner_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.banner + user.banner;
       }
 
       return {
@@ -105,10 +125,11 @@ export class ProfileService {
         license_front?: Express.Multer.File[];
         license_back?: Express.Multer.File[];
         avatar?: Express.Multer.File[];
-        banner?: Express.Multer.File[];  // Add banner type
+        banner?: Express.Multer.File[];
       }
     ) {
       try {
+        console.log(updateData.about);
         // Handle file uploads
         let avatarFileName = null;
         let bannerFileName = null;  // Add banner variable
@@ -118,7 +139,7 @@ export class ProfileService {
         if (files.avatar?.[0]) {
           const fileName = `${Date.now()}-${files.avatar[0].originalname}`;
           await SojebStorage.put(
-            `avatars/${fileName}`,
+            `avatar/${fileName}`,
             files.avatar[0].buffer
           );
           avatarFileName = fileName;
@@ -127,7 +148,7 @@ export class ProfileService {
         if (files.banner?.[0]) {
           const fileName = `${Date.now()}-${files.banner[0].originalname}`;
           await SojebStorage.put(
-            `banners/${fileName}`,
+            `banner/${fileName}`,
             files.banner[0].buffer
           );
           bannerFileName = fileName;
@@ -136,7 +157,7 @@ export class ProfileService {
         if (files.license_front?.[0]) {
           const fileName = `${Date.now()}-${files.license_front[0].originalname}`;
           await SojebStorage.put(
-            `licenses/${fileName}`,
+            `license/${fileName}`,
             files.license_front[0].buffer
           );
           licenseFrontFileName = fileName;
@@ -145,7 +166,7 @@ export class ProfileService {
         if (files.license_back?.[0]) {
           const fileName = `${Date.now()}-${files.license_back[0].originalname}`;
           await SojebStorage.put(
-            `licenses/${fileName}`,
+            `license/${fileName}`,
             files.license_back[0].buffer
           );
           licenseBackFileName = fileName;
@@ -160,6 +181,7 @@ export class ProfileService {
             phone_number: updateData.phone,
             address: updateData.address,
             date_of_birth: new Date(updateData.date_of_birth),
+            aboutus: updateData.about,
             ...(avatarFileName && { avatar: avatarFileName }),
             ...(bannerFileName && { banner: bannerFileName }),
             service_provider: {
@@ -174,7 +196,7 @@ export class ProfileService {
                   date_of_birth: new Date(updateData.date_of_birth),
                   license_front: licenseFrontFileName || '',
                   license_back: licenseBackFileName || '',
-                  aboutus: updateData.about
+                  aboutus: updateData.about || ''
                 },
                 update: {
                   business_name: updateData.name || '',
@@ -195,9 +217,22 @@ export class ProfileService {
   
         // Add banner URL to response
          if (updatedUser.banner) {
-          updatedUser['banner_url'] = SojebStorage.url(
-            appConfig().storageUrl.banner + updatedUser.banner // Use avatar path for now
-          );
+          updatedUser['banner_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.banner + updatedUser.banner;
+        }
+
+        // Add avatar URL
+        if (updatedUser.avatar) {
+          updatedUser['avatar_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.avatar + updatedUser.avatar;
+        }
+
+        // Add license URLs if they exist in service_provider
+        if (updatedUser.service_provider) {
+          if (updatedUser.service_provider.license_front) {
+            updatedUser.service_provider['license_front_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.license + updatedUser.service_provider.license_front;
+          }
+          if (updatedUser.service_provider.license_back) {
+            updatedUser.service_provider['license_back_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.license + updatedUser.service_provider.license_back;
+          }
         }
 
         return {
