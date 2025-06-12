@@ -73,13 +73,6 @@ export class ProfileService {
         };
       }
 
-      // // Handle avatar URL
-      // if (user.avatar) {
-      //   user['avatar_url'] = SojebStorage.url(
-      //     appConfig().storageUrl.avatar + user.avatar,
-      //   );
-      // }
-
       // Add avatar URL
       if (user.avatar) {
         user['avatar_url'] = appConfig().storageUrl.rootUrlPublic + appConfig().storageUrl.avatar + user.avatar;

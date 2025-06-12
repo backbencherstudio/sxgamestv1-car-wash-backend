@@ -17,6 +17,7 @@ export class ManageBookingsController {
     }
   }
 
+
   @Get("ongoing")
   getOngoingWorks() {
     try {
@@ -42,6 +43,7 @@ export class ManageBookingsController {
     }
   }
 
+  
   @Patch('completed-bookings/:id')
   async updateCompletedStatus(
     @Param('id') id: string,

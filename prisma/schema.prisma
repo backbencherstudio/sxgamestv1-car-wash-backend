@@ -84,6 +84,7 @@ model User {
   service_provider ServiceProvider?
 
   service_bookings ServiceBooking[]
+  reviews         Review[]
 
   subscriptions Subscription[]
 
@@ -447,8 +448,25 @@ model ServiceBooking {
 
   user_id    String
   user       User     @relation(fields: [user_id], references: [id])
+  review     Review?
 
   @@map("service_bookings")
+}
+
+model Review {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  rating        Int
+  description   String
+  booking_id    String    @unique
+  user_id       String
+  booking       ServiceBooking @relation(fields: [booking_id], references: [id])
+  user          User          @relation(fields: [user_id], references: [id])
+
+  @@map("reviews")
 }
 
 model Subscription {

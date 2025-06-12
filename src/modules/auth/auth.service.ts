@@ -256,7 +256,60 @@ export class AuthService {
 
       const payload = { email: email, sub: userId };
       const token = this.jwtService.sign(payload);
-      const user = await UserRepository.getUserDetails(userId);
+      
+      const user = await this.prisma.user.findFirst({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar: true,
+          address: true,
+          phone_number: true,
+          type: true,
+          gender: true,
+          date_of_birth: true,
+          created_at: true,
+          subscriptions: {
+            where: {
+              is_active: true,
+              deleted_at: null,
+              status: 'active',
+              cancel_at_period_end: false
+            },
+            select: {
+              id: true,
+              stripe_subscription_id: true,
+              status: true,
+              is_active: true,
+              current_period_start: true,
+              current_period_end: true,
+              cancel_at_period_end: true,
+              plan: {
+                select: {
+                  name: true,
+                  price: true,
+                  currency: true,
+                  interval: true
+                }
+              }
+            }
+          }
+        },
+      });
+
+      if (user.avatar) {
+        user['avatar_url'] = SojebStorage.url(
+          appConfig().storageUrl.avatar + user.avatar,
+        );
+      }
+
+      // If no active subscription found, set subscriptions to null
+      if (!user.subscriptions || user.subscriptions.length === 0) {
+        user['subscriptions'] = null;
+      }
 
       return {
         success: true,
@@ -265,7 +318,7 @@ export class AuthService {
           token: token,
           type: 'bearer',
         },
-        type: user.type,
+        data: user
       };
     } catch (error) {
       return {
