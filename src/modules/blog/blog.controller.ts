@@ -1,6 +1,7 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Req } from '@nestjs/common';
 import { BlogService } from './blog.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Request } from 'express';
 
 @Controller('blog')
 @UseGuards(JwtAuthGuard)
@@ -20,9 +21,9 @@ export class BlogController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string, @Req() req: Request) {
     try {
-      return await this.blogService.findOne(id);
+      return await this.blogService.findOne(id, req.user.userId);
     } catch (error) {
       return {
         success: false,

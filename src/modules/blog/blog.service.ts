@@ -16,7 +16,18 @@ export class BlogService {
         orderBy: {
           created_at: 'desc'
         },
-        include: {
+        select: {
+          id: true,
+          title: true,
+          sub_title: true,
+          slug: true,
+          content: true,
+          thumbnail: true,
+          category: true,
+          views: true,
+          is_featured: true,
+          created_at: true,
+          updated_at: true,
           user: {
             select: {
               id: true,
@@ -27,13 +38,18 @@ export class BlogService {
         }
       });
 
-      // Add thumbnail URLs
-      const blogsWithUrls = blogs.map(blog => {
-        if (blog.thumbnail) {
-          blog['thumbnail_url'] = 'public/storage' + appConfig().storageUrl.blog + blog.thumbnail;
+      // Add thumbnail URLs and format the response
+      const blogsWithUrls = blogs.map(blog => ({
+        ...blog,
+        thumbnail_url: blog.thumbnail ? 
+          'public/storage' + appConfig().storageUrl.blog + blog.thumbnail : null,
+        total_views: blog.views || 0, // Explicitly include view count
+        user: {
+          ...blog.user,
+          avatar_url: blog.user.avatar ? 
+            SojebStorage.url(appConfig().storageUrl.avatar + blog.user.avatar) : null
         }
-        return blog;
-      });
+      }));
 
       return {
         success: true,
@@ -47,8 +63,38 @@ export class BlogService {
     }
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId: string) {
     try {
+      // First check if the user has already viewed this blog
+      const existingView = await this.prisma.blogView.findUnique({
+        where: {
+          blog_id_user_id: {
+            blog_id: id,
+            user_id: userId
+          }
+        }
+      });
+
+      // If this is the first time viewing, create a view record and increment the view count
+      if (!existingView) {
+        await this.prisma.$transaction([
+          this.prisma.blogView.create({
+            data: {
+              blog_id: id,
+              user_id: userId
+            }
+          }),
+          this.prisma.blog.update({
+            where: { id },
+            data: {
+              views: {
+                increment: 1
+              }
+            }
+          })
+        ]);
+      }
+
       const blog = await this.prisma.blog.findUnique({
         where: {
           id: id,
@@ -77,6 +123,7 @@ export class BlogService {
         ...blog,
         thumbnail_url: blog.thumbnail ? 
           'public/storage' + appConfig().storageUrl.blog + blog.thumbnail : null,
+        total_views: blog.views || 0, // Explicitly include view count
         user: {
           ...blog.user,
           avatar_url: blog.user.avatar ? 

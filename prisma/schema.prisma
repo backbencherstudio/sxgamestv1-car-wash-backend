@@ -89,6 +89,7 @@ model User {
   subscriptions Subscription[]
 
   blogs            Blog[]
+  blog_views       BlogView[]
 
   @@map("users")
 }
@@ -532,7 +533,22 @@ model Blog {
 
   user_id    String
   user       User     @relation(fields: [user_id], references: [id])
+  blog_views BlogView[]
 
   @@map("blogs")
+}
+
+model BlogView {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  
+  blog_id    String
+  user_id    String
+  blog       Blog     @relation(fields: [blog_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([blog_id, user_id])
+  @@map("blog_views")
 }
 
