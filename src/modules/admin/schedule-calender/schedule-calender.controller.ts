@@ -8,7 +8,7 @@ export class ScheduleCalenderController {
   @Get()
   async getSchedule(
     @Query('month') month: string, // e.g., "May 2025"
-    @Query('view') view: 'weekly' | 'monthly' = 'weekly'
+    @Query('view') view: 'weekly' | 'today' = 'weekly'
   ) {
     try {
       return await this.scheduleCalenderService.getSchedule(month, view);

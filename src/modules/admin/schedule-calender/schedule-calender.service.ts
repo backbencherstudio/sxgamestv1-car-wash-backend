@@ -5,19 +5,42 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class ScheduleCalenderService {
   constructor(private prisma: PrismaService) {}
 
-  async getSchedule(month: string, view: 'weekly' | 'monthly') {
+  async getSchedule(month: string, view: 'weekly' | 'today') {
     // Parse month string (e.g., "May 2025")
     const [monthName, year] = month.split(' ');
     const monthIndex = new Date(`${monthName} 1, 2000`).getMonth();
     
-    // Create start and end dates for the month
-    const startDate = new Date(parseInt(year), monthIndex, 1);
-    const endDate = new Date(parseInt(year), monthIndex + 1, 0);
+    let startDate: Date;
+    let endDate: Date;
+
+    if (view === 'today') {
+      // For today's view, set start and end to current day
+      const today = new Date();
+      startDate = new Date(today);
+      startDate.setHours(0, 0, 0, 0);
+      
+      endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (view === 'weekly') {
+      // For weekly view, get the current week's start and end dates
+      const today = new Date();
+      const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
+      
+      // Calculate start of the week (Sunday)
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - currentDay);
+      startDate.setHours(0, 0, 0, 0);
+      
+      // Calculate end of the week (Saturday)
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
+      endDate.setHours(23, 59, 59, 999);
+    }
 
     const bookings = await this.prisma.serviceBooking.findMany({
       where: {
         deleted_at: null,
-        status: 'ongoing',  // Add status filter for ongoing bookings
+        status: 'ongoing',
         schedule_datetime: {
           gte: startDate,
           lte: endDate
