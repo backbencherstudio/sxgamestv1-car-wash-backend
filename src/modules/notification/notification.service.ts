@@ -6,16 +6,36 @@ import * as admin from 'firebase-admin';
 
 @Injectable()
 export class NotificationService {
+  private firebaseApp: admin.app.App;
+
   constructor(private prisma: PrismaService) {
-    // Initialize Firebase Admin
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-      });
+    //  // Initialize Firebase Admin
+    //  if (!admin.apps.length) {
+    //   admin.initializeApp({
+    //     credential: admin.credential.cert({
+    //       projectId: process.env.FIREBASE_PROJECT_ID,
+    //       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    //       privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    //     }),
+    //   });
+    
+    // Initialize Firebase Admin only if credentials are available
+    if (process.env.FIREBASE_PROJECT_ID && 
+        process.env.FIREBASE_CLIENT_EMAIL && 
+        process.env.FIREBASE_PRIVATE_KEY) {
+      try {
+        this.firebaseApp = admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to initialize Firebase Admin:', error);
+      }
+    } else {
+      console.warn('Firebase credentials not found. Push notifications will be disabled.');
     }
   }
 
@@ -79,6 +99,13 @@ export class NotificationService {
 
   async sendNotification(title: string, body: string, data?: any) {
     try {
+      if (!this.firebaseApp) {
+        return {
+          success: false,
+          message: 'Firebase not initialized. Push notifications are disabled.',
+        };
+      }
+
       // Get all FCM tokens
       const tokens = await this.prisma.fCMToken.findMany({
         select: {
@@ -105,7 +132,7 @@ export class NotificationService {
               data: data || {},
               token: token.token,
             };
-            return await admin.messaging().send(message);
+            return await this.firebaseApp.messaging().send(message);
           } catch (error) {
             console.error(`Failed to send notification to token: ${error.message}`);
             return null;
