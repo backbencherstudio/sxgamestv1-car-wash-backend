@@ -234,7 +234,7 @@ export class AuthService {
     }
   }
 
-  async login({ email, userId }) {
+  async login({ email, userId, fcmToken }) {
     try {
       // Check for active subscription
       // const subscription = await this.prisma.subscription.findFirst({
@@ -309,6 +309,26 @@ export class AuthService {
       // If no active subscription found, set subscriptions to null
       if (!user.subscriptions || user.subscriptions.length === 0) {
         user['subscriptions'] = null;
+      }
+
+      // Save FCM token if provided
+      if (fcmToken) {
+        await this.prisma.fCMToken.upsert({
+          where: {
+            user_id_token: {
+              user_id: userId,
+              token: fcmToken
+            }
+          },
+          update: {
+            status: 1,
+            deleted_at: null
+          },
+          create: {
+            user_id: userId,
+            token: fcmToken
+          }
+        });
       }
 
       return {

@@ -91,6 +91,8 @@ model User {
   blogs            Blog[]
   blog_views       BlogView[]
 
+  fcm_tokens FCMToken[]
+
   @@map("users")
 }
 
@@ -550,5 +552,20 @@ model BlogView {
 
   @@unique([blog_id, user_id])
   @@map("blog_views")
+}
+
+model FCMToken {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+  deleted_at DateTime?
+  status     Int?     @default(1) @db.SmallInt
+
+  user_id    String
+  token      String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, token])
+  @@map("fcm_tokens")
 }
 

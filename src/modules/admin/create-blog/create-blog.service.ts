@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
+import { NotificationService } from 'src/modules/notification/notification.service';
 
 @Injectable()
 export class CreateBlogService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService
+  ) {}
 
   async create(
     userId: string,
@@ -51,6 +55,17 @@ export class CreateBlogService {
       if (blog.thumbnail) {
         blog['thumbnail_url'] = 'public/storage' + appConfig().storageUrl.blog + blog.thumbnail;
       }
+
+      // Send notification for new blog
+      await this.notificationService.sendNotification(
+        'New Blog Post',
+        `${blog.title} - ${blog.sub_title}`,
+        {
+          type: 'new_blog',
+          blogId: blog.id,
+          slug: blog.slug
+        }
+      );
 
       return {
         success: true,
