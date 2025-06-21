@@ -75,7 +75,7 @@ export class OrderHistoryService {
       });
 
       if (existingReview) {
-        throw new HttpException('Review already exists for this booking', HttpStatus.BAD_REQUEST);
+        return 'Review already exists for this booking';
       }
 
       // Create review

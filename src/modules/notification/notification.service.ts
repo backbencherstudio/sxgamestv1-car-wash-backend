@@ -39,6 +39,226 @@ export class NotificationService {
     }
   }
 
+  // Get notifications for a specific user
+  async getUserNotifications(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    readStatus?: 'all' | 'read' | 'unread'
+  ) {
+    try {
+      const skip = (page - 1) * limit;
+      
+      // Build where condition
+      const where: any = {
+        receiver_id: userId,
+        deleted_at: null,
+      };
+
+      // Add read status filter
+      if (readStatus === 'read') {
+        where.read_at = { not: null };
+      } else if (readStatus === 'unread') {
+        where.read_at = null;
+      }
+
+      const [notifications, total] = await Promise.all([
+        this.prisma.notification.findMany({
+          where,
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+              },
+            },
+            notification_event: {
+              select: {
+                id: true,
+                type: true,
+                text: true,
+              },
+            },
+          },
+          orderBy: {
+            created_at: 'desc',
+          },
+          skip,
+          take: limit,
+        }),
+        this.prisma.notification.count({
+          where,
+        }),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          notifications,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+            hasNext: page * limit < total,
+            hasPrev: page > 1,
+          },
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // Get unread notification count for a user
+  async getUnreadCount(userId: string) {
+    try {
+      const count = await this.prisma.notification.count({
+        where: {
+          receiver_id: userId,
+          read_at: null,
+          deleted_at: null,
+        },
+      });
+
+      return {
+        success: true,
+        data: { unreadCount: count },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // Mark notification as read
+  async markAsRead(notificationId: string, userId: string) {
+    try {
+      const notification = await this.prisma.notification.findFirst({
+        where: {
+          id: notificationId,
+          receiver_id: userId,
+          deleted_at: null,
+        },
+      });
+
+      if (!notification) {
+        return {
+          success: false,
+          message: 'Notification not found',
+        };
+      }
+
+      const updatedNotification = await this.prisma.notification.update({
+        where: { id: notificationId },
+        data: {
+          read_at: new Date(),
+          updated_at: new Date(),
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+          notification_event: {
+            select: {
+              id: true,
+              type: true,
+              text: true,
+            },
+          },
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Notification marked as read',
+        data: updatedNotification,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // Mark all notifications as read for a user
+  async markAllAsRead(userId: string) {
+    try {
+      const result = await this.prisma.notification.updateMany({
+        where: {
+          receiver_id: userId,
+          read_at: null,
+          deleted_at: null,
+        },
+        data: {
+          read_at: new Date(),
+          updated_at: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: 'All notifications marked as read',
+        data: { updatedCount: result.count },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // Delete a notification for a user
+  async deleteNotification(notificationId: string, userId: string) {
+    try {
+      const notification = await this.prisma.notification.findFirst({
+        where: {
+          id: notificationId,
+          receiver_id: userId,
+          deleted_at: null,
+        },
+      });
+
+      if (!notification) {
+        return {
+          success: false,
+          message: 'Notification not found',
+        };
+      }
+
+      await this.prisma.notification.update({
+        where: { id: notificationId },
+        data: {
+          deleted_at: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Notification deleted successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
   async saveFCMToken(userId: string, token: string) {
     try {
       // Check if token already exists

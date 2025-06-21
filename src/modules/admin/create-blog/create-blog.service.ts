@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
 import { NotificationService } from 'src/modules/notification/notification.service';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 
 @Injectable()
 export class CreateBlogService {
@@ -57,7 +58,7 @@ export class CreateBlogService {
       }
 
       // Send notification for new blog
-      await this.notificationService.sendNotification(
+      const notificationResult = await this.notificationService.sendNotification(
         'New Blog Post',
         `${blog.title} - ${blog.sub_title}`,
         {
@@ -67,10 +68,43 @@ export class CreateBlogService {
         }
       );
 
+      // If push notification was sent successfully, store in database
+      if (notificationResult.success) {
+        try {
+          // Get all users to send notification to (or specific users based on your logic)
+          const users = await this.prisma.user.findMany({
+            where: {
+              deleted_at: null,
+              status: 1,
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          // Create notification in database for each user
+          for (const user of users) {
+            await NotificationRepository.createNotification({
+              sender_id: userId, // Blog creator
+              receiver_id: user.id, // Each user
+              text: `New blog post: ${blog.title} - ${blog.sub_title}`,
+              type: 'blog',
+              entity_id: blog.id,
+            });
+          }
+
+          console.log(`Blog notification stored in database for ${users.length} users`);
+        } catch (dbError) {
+          console.error('Failed to store notification in database:', dbError);
+          // Don't fail the blog creation if database storage fails
+        }
+      }
+
       return {
         success: true,
         message: 'Blog created successfully',
         data: blog,
+        notification: notificationResult,
       };
     } catch (error) {
       return {
