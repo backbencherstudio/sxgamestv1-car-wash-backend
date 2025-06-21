@@ -10,7 +10,7 @@ import { Request } from 'express';
 @ApiBearerAuth()
 @ApiTags('Notification')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.VENDOR)
+@Roles(Role.ADMIN)
 @Controller('admin/notification')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
