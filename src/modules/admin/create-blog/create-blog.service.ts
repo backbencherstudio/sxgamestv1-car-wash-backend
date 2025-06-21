@@ -93,7 +93,6 @@ export class CreateBlogService {
             });
           }
 
-          console.log(`Blog notification stored in database for ${users.length} users`);
         } catch (dbError) {
           console.error('Failed to store notification in database:', dbError);
           // Don't fail the blog creation if database storage fails
