@@ -75,7 +75,10 @@ export class OrderHistoryService {
       });
 
       if (existingReview) {
-        return 'Review already exists for this booking';
+        return {
+          success: false,
+          message:'Review already exists for this booking'
+        }
       }
 
       // Create review
