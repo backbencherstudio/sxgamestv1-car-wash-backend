@@ -50,7 +50,10 @@ export class ServicesService {
       return {
         success: true,
         message: 'Services retrieved successfully',
-        data: services,
+        data: services.map(ser =>({
+          ...ser,
+          imageUrl: ser.image ? `${process.env.APP_URL}/storage/services/${ser.image}` : null
+        })),
       };
     } catch (error) {
       throw new HttpException(
@@ -73,7 +76,12 @@ export class ServicesService {
       return {
         success: true,
         message: 'Service retrieved successfully',
-        data: service,
+        data: {
+          ...service,
+          imageUrl: service.image
+            ? `${process.env.APP_URL}/storage/services/${service.image}`
+            : null,
+        },
       };
     } catch (error) {
       throw new HttpException(
@@ -82,4 +90,5 @@ export class ServicesService {
       );
     }
   }
+  
 }
