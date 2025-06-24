@@ -301,9 +301,9 @@ export class AuthService {
       });
 
       if (user.avatar) {
-        user['avatar_url'] = SojebStorage.url(
-          appConfig().storageUrl.avatar + user.avatar,
-        );
+        user['avatar_url'] =
+        `${process.env.BACKEND_APP_URL}/storage${appConfig().storageUrl.avatar + user.avatar}`
+        
       }
 
       // If no active subscription found, set subscriptions to null

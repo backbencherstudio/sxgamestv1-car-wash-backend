@@ -42,12 +42,12 @@ export class BlogService {
       const blogsWithUrls = blogs.map(blog => ({
         ...blog,
         thumbnail_url: blog.thumbnail ? 
-          'public/storage' + appConfig().storageUrl.blog + blog.thumbnail : null,
+          'storage' + appConfig().storageUrl.blog + blog.thumbnail : null,
         total_views: blog.views || 0, // Explicitly include view count
         user: {
           ...blog.user,
           avatar_url: blog.user.avatar ? 
-            SojebStorage.url(appConfig().storageUrl.avatar + blog.user.avatar) : null
+           `${process.env.BACKEND_APP_URL}/storage${appConfig().storageUrl.avatar + blog.user.avatar}` : null
         }
       }));
 
@@ -65,6 +65,20 @@ export class BlogService {
 
   async findOne(id: string, userId: string) {
     try {
+      // First check if the user exists
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId
+        }
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found'
+        };
+      }
+
       // First check if the user has already viewed this blog
       const existingView = await this.prisma.blogView.findUnique({
         where: {
@@ -122,12 +136,13 @@ export class BlogService {
       const blogWithUrls = {
         ...blog,
         thumbnail_url: blog.thumbnail ? 
-          'public/storage' + appConfig().storageUrl.blog + blog.thumbnail : null,
+          'storage' + appConfig().storageUrl.blog + blog.thumbnail : null,
         total_views: blog.views || 0, // Explicitly include view count
         user: {
           ...blog.user,
           avatar_url: blog.user.avatar ? 
-            SojebStorage.url(appConfig().storageUrl.avatar + blog.user.avatar) : null
+            'storage' + appConfig().storageUrl.avatar + blog.user.avatar : null,
+            // SojebStorage.url(appConfig().storageUrl.avatar + blog.user.avatar) : null
         }
       };
 
