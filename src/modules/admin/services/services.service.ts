@@ -52,7 +52,7 @@ export class ServicesService {
         message: 'Services retrieved successfully',
         data: services.map(ser =>({
           ...ser,
-          imageUrl: ser.image ? `${process.env.APP_URL}/storage/services/${ser.image}` : null
+          imageUrl: ser.image ? `${process.env.BACKEND_APP_URL}/storage/services/${ser.image}` : null
         })),
       };
     } catch (error) {
@@ -79,7 +79,7 @@ export class ServicesService {
         data: {
           ...service,
           imageUrl: service.image
-            ? `${process.env.APP_URL}/storage/services/${service.image}`
+            ? `${process.env.BACKEND_APP_URL}/storage/services/${service.image}`
             : null,
         },
       };
