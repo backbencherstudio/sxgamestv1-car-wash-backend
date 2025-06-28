@@ -71,7 +71,7 @@ export class CreateBlogService {
       // If push notification was sent successfully, store in database
       if (notificationResult.success) {
         try {
-          // Get all users to send notification to (or specific users based on your logic)
+          // Get all users to send notification to
           const users = await this.prisma.user.findMany({
             where: {
               deleted_at: null,
@@ -92,7 +92,6 @@ export class CreateBlogService {
               entity_id: blog.id,
             });
           }
-
         } catch (dbError) {
           console.error('Failed to store notification in database:', dbError);
           // Don't fail the blog creation if database storage fails
