@@ -185,49 +185,66 @@ export class ProfileService {
           );
           licenseBackFileName = fileName;
         }
-  
+
+        // Ensure date_of_birth is properly validated
+        let dateOfBirth = null; // Default to null
+
+        if (updateData.date_of_birth) {
+          dateOfBirth = new Date(updateData.date_of_birth);
+          if (isNaN(dateOfBirth.getTime())) {
+            dateOfBirth = null; // If the date is invalid, set it to null
+          }
+        }
+
         // Update user profile
         const updatedUser = await this.prisma.user.update({
           where: { id: userId },
           data: {
-            name: updateData.name,
-            email: updateData.email,
-            phone_number: updateData.phone,
-            address: updateData.address,
-            date_of_birth: new Date(updateData.date_of_birth),
-            aboutus: updateData.about,
-            ...(avatarFileName && { avatar: avatarFileName }),
-            ...(bannerFileName && { banner: bannerFileName }),
+            // only include top-level fields if provided (avoid sending undefined)
+            ...(updateData.name !== undefined ? { name: updateData.name } : {}),
+            ...(updateData.email !== undefined ? { email: updateData.email } : {}),
+            ...(updateData.phone !== undefined ? { phone_number: updateData.phone } : {}),
+            ...(updateData.address !== undefined ? { address: updateData.address } : {}),
+            // user.date_of_birth is nullable in schema, so include only when valid
+            ...(dateOfBirth !== null ? { date_of_birth: dateOfBirth } : {}),
+            ...(updateData.about !== undefined ? { aboutus: updateData.about } : {}),
+            ...(avatarFileName ? { avatar: avatarFileName } : {}),
+            ...(bannerFileName ? { banner: bannerFileName } : {}),
+
+            // ServiceProvider nested upsert: schema requires several non-null strings and date
             service_provider: {
               upsert: {
                 create: {
+                  // Provide all non-nullable fields. Use provided values when valid, otherwise safe defaults.
                   business_name: updateData.name || '',
                   business_number: '',
                   nid_number: '',
                   license_number: '',
-                  business_location: updateData.business_location,
+                  // business_location is required in schema — ensure a string is always provided
+                  business_location: updateData.business_location || '',
                   permanent_address: updateData.address || '',
-                  date_of_birth: new Date(updateData.date_of_birth),
                   license_front: licenseFrontFileName || '',
                   license_back: licenseBackFileName || '',
-                  aboutus: updateData.about || ''
+                  aboutus: updateData.about || '',
+                  // ServiceProvider.date_of_birth is non-nullable: use parsed date when valid, else fallback to now
+                  date_of_birth: dateOfBirth !== null ? dateOfBirth : new Date()
                 },
                 update: {
-                  business_name: updateData.name || '',
-                  business_location: updateData.business_location,
-                  permanent_address: updateData.address || '',
-                  date_of_birth: new Date(updateData.date_of_birth),
-                  ...(licenseFrontFileName && { license_front: licenseFrontFileName }),
-                  ...(licenseBackFileName && { license_back: licenseBackFileName }),
-                  aboutus: updateData.about
+                  // For updates, only change fields when the caller supplied them (avoid writing undefined)
+                  ...(updateData.name !== undefined ? { business_name: updateData.name } : {}),
+                  ...(updateData.business_location !== undefined ? { business_location: updateData.business_location } : {}),
+                  ...(updateData.address !== undefined ? { permanent_address: updateData.address } : {}),
+                  ...(dateOfBirth !== null ? { date_of_birth: dateOfBirth } : {}),
+                  ...(licenseFrontFileName ? { license_front: licenseFrontFileName } : {}),
+                  ...(licenseBackFileName ? { license_back: licenseBackFileName } : {}),
+                  ...(updateData.about !== undefined ? { aboutus: updateData.about } : {})
                 }
               }
             }
           },
-          include: {
-            service_provider: true
-          }
+          include: { service_provider: true }
         });
+
   
         // Add banner URL to response
          if (updatedUser.banner) {

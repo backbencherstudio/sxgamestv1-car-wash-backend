@@ -55,7 +55,7 @@ model User {
   address       String?
   zip_code      String?
   gender        String?
-  date_of_birth DateTime? @db.Date
+  date_of_birth DateTime? 
 
   // billing id. e.g. stripe customer id
   billing_id String?

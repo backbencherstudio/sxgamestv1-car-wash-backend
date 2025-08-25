@@ -74,7 +74,7 @@ export class AuthService {
 
       if (user.avatar) {
         user['avatar_url'] = 
-          `${process.env.BACKEND_APP_URL}/storage${appConfig().storageUrl.avatar + user.avatar}`
+          `/storage${appConfig().storageUrl.avatar + user.avatar}`
         
       }
 
